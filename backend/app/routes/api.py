@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select, and_
+from sqlalchemy import delete, select, and_, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -19,6 +19,7 @@ from app.schemas.schemas import (
     DailyCheckinResponse,
     PomodoroSessionCreate,
     PomodoroSessionResponse,
+    PomodoroSessionStatsResponse,
     RiskScoreResponse,
     AIPlanResponse,
     CalendarEventsResponse,
@@ -323,6 +324,37 @@ async def create_session(
     await db.commit()
     await db.refresh(db_session)
     return db_session
+
+
+@router.get("/sessions/stats", response_model=PomodoroSessionStatsResponse)
+async def get_session_stats(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    total_stmt = select(func.count(PomodoroSession.id)).where(PomodoroSession.user_id == user.id)
+    focus_stmt = select(func.count(PomodoroSession.id)).where(
+        and_(
+            PomodoroSession.user_id == user.id,
+            or_(PomodoroSession.session_type == "focus", PomodoroSession.session_type == "work"),
+        )
+    )
+    break_stmt = select(func.count(PomodoroSession.id)).where(
+        and_(PomodoroSession.user_id == user.id, PomodoroSession.session_type == "break")
+    )
+
+    total_result = await db.execute(total_stmt)
+    focus_result = await db.execute(focus_stmt)
+    break_result = await db.execute(break_stmt)
+
+    total_sessions = total_result.scalar_one() or 0
+    total_focus_sessions = focus_result.scalar_one() or 0
+    total_break_sessions = break_result.scalar_one() or 0
+
+    return PomodoroSessionStatsResponse(
+        total_sessions=total_sessions,
+        total_focus_sessions=total_focus_sessions,
+        total_break_sessions=total_break_sessions,
+    )
 
 
 # GET /risk-score endpoint

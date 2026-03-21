@@ -59,6 +59,12 @@ class PomodoroSessionResponse(PomodoroSessionCreate):
     class Config:
         from_attributes = True
 
+
+class PomodoroSessionStatsResponse(BaseModel):
+    total_sessions: int
+    total_focus_sessions: int
+    total_break_sessions: int
+
 # --- RISK & AI ---
 class RiskScoreResponse(BaseModel):
     risk_level: str  # "Low", "Med", "High"
