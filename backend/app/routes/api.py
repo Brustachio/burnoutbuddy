@@ -165,6 +165,19 @@ async def get_google_calendar_events(
                 seen.add(key)
                 events.append(parsed)
 
+        # Collect all google_event_ids from current fetch
+        current_google_event_ids = {e["id"] for e in events if e["id"]}
+        
+        # Delete events that were in the database but are no longer in Google Calendar
+        delete_stmt = delete(Event).where(
+            and_(
+                Event.user_id == user.id,
+                Event.source == "google",
+                ~Event.google_event_id.in_(current_google_event_ids)
+            )
+        )
+        await db.execute(delete_stmt)
+
         for e in events:
             try:
                 start_dt = datetime.fromisoformat(e["start"].replace("Z", "+00:00")).replace(tzinfo=None)
