@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
+const CALENDAR_CACHE_KEY = 'burnoutbuddy_google_calendar_events_v1'
+const CALENDAR_CACHE_TIME_KEY = 'burnoutbuddy_google_calendar_events_synced_at_v1'
 
 type CalendarEvent = {
   id?: string | number
@@ -21,6 +23,34 @@ type CalendarApiResponse = {
   events?: CalendarEvent[]
   detail?: string
   message?: string
+}
+
+function readCachedEvents(): CalendarEvent[] {
+  try {
+    const raw = window.localStorage.getItem(CALENDAR_CACHE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? (parsed as CalendarEvent[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeCachedEvents(nextEvents: CalendarEvent[]): void {
+  try {
+    window.localStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(nextEvents))
+    window.localStorage.setItem(CALENDAR_CACHE_TIME_KEY, new Date().toISOString())
+  } catch {
+    // If localStorage fails (privacy mode/quota), keep app behavior functional.
+  }
+}
+
+function readCachedSyncTime(): string | null {
+  try {
+    return window.localStorage.getItem(CALENDAR_CACHE_TIME_KEY)
+  } catch {
+    return null
+  }
 }
 
 function formatDateTime(raw?: string): string {
@@ -47,10 +77,11 @@ function eventStart(rawEvent: CalendarEvent): Date | null {
 export default function CalendarPage() {
   const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>(() => readCachedEvents())
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [hasAutoSyncedAfterLink, setHasAutoSyncedAfterLink] = useState(false)
 
   const weekDays = useMemo(() => {
     const days: Date[] = []
@@ -95,6 +126,21 @@ export default function CalendarPage() {
     if (!firstDay) return ''
     return firstDay.toLocaleDateString()
   }, [weekDays])
+
+  const cachedSyncLabel = useMemo(() => {
+    const raw = readCachedSyncTime()
+    if (!raw) return null
+
+    const parsed = new Date(raw)
+    if (Number.isNaN(parsed.getTime())) return null
+
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }, [events])
 
   useEffect(() => {
     if (!supabase) {
@@ -166,7 +212,7 @@ export default function CalendarPage() {
     }
   }
 
-  const syncFromGoogle = async () => {
+  const syncFromGoogle = useCallback(async () => {
     if (!supabase) {
       setError(supabaseConfigError || 'Supabase is not configured.')
       return
@@ -213,13 +259,28 @@ export default function CalendarPage() {
 
       const incoming = Array.isArray(data.events) ? data.events : []
       setEvents(incoming)
+      writeCachedEvents(incoming)
       setStatus(`Synced ${incoming.length} events from Google Calendar.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sync failed.')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isGoogleLinked])
+
+  useEffect(() => {
+    if (!isGoogleLinked) {
+      return
+    }
+
+    if (hasAutoSyncedAfterLink) {
+      return
+    }
+
+    setHasAutoSyncedAfterLink(true)
+    setStatus('Updating calendar...')
+    void syncFromGoogle()
+  }, [hasAutoSyncedAfterLink, isGoogleLinked, syncFromGoogle])
 
   return (
     <div className="min-h-screen bg-background text-foreground px-4 py-8 sm:px-8">
@@ -228,7 +289,9 @@ export default function CalendarPage() {
           <div>
             <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with Google to load your calendar directly.
+              {isGoogleLinked
+                ? 'Your Google calendar syncs automatically when you open this page.'
+                : 'Sign in with Google to load your calendar directly.'}
             </p>
           </div>
           <Button
@@ -245,11 +308,13 @@ export default function CalendarPage() {
         <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 space-y-1">
             <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Login Page
+              {isGoogleLinked ? 'Calendar Sync' : 'Login Page'}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Start here first. Sign in with Google, then click Update Calendar to load your events.
-            </p>
+            {!isGoogleLinked && (
+              <p className="text-sm text-muted-foreground">
+                Start here first. Sign in with Google to load your events.
+              </p>
+            )}
           </div>
 
           {!hasSupabaseConfig && (
@@ -259,36 +324,30 @@ export default function CalendarPage() {
           )}
 
           <div className="space-y-3">
-            <Button
-              onClick={connectGoogle}
-              disabled={!hasSupabaseConfig}
-              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-            >
-              Login With Google (Supabase)
-            </Button>
+            {!isGoogleLinked && (
+              <Button
+                onClick={connectGoogle}
+                disabled={!hasSupabaseConfig}
+                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+              >
+                Login With Google (Supabase)
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              onClick={syncFromGoogle}
-              disabled={isLoading}
-              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-            >
-              {isLoading ? 'Updating...' : 'Update Calendar'}
-            </Button>
-
-            <p className="text-xs text-muted-foreground">
-              Google status: {isGoogleLinked ? 'Linked' : 'Not linked'}
-            </p>
-
-            {hasTriedGoogleLogin && (
-              <p className="text-xs text-muted-foreground">
-                If you just completed Google login, click Update Calendar to load events.
-              </p>
+            {isLoading && (
+              <p className="text-xs text-muted-foreground">Updating calendar from Google...</p>
             )}
 
             <p className="text-xs text-muted-foreground">
-              OAuth redirect target: {OAUTH_REDIRECT_TO}
+              Google Calendar Status: {isGoogleLinked ? 'Linked' : 'Unlinked'}
             </p>
+
+            {!isGoogleLinked && hasTriedGoogleLogin && (
+              <p className="text-xs text-muted-foreground">
+                If you just completed Google login, your calendar updates automatically.
+              </p>
+            )}
+
           </div>
         </section>
 
@@ -351,7 +410,15 @@ export default function CalendarPage() {
 
           {events.length === 0 && (
             <p className="mt-4 text-xs text-muted-foreground">
-              No Google events loaded yet. Sign in with Google and click Update Calendar.
+              {isGoogleLinked
+                ? 'No Google events found for the next 7 days.'
+                : 'No Google events loaded yet. Sign in with Google and wait a moment for automatic sync.'}
+            </p>
+          )}
+
+          {events.length > 0 && cachedSyncLabel && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Showing cached events. Last updated: {cachedSyncLabel}
             </p>
           )}
         </section>
