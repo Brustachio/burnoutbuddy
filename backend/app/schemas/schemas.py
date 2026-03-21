@@ -67,3 +67,15 @@ class RiskScoreResponse(BaseModel):
 class AIPlanResponse(BaseModel):
     message: str
     tasks_generated: int
+
+class CalendarEvent(BaseModel):
+    id: str
+    title: str
+    start: str
+    end: str
+    description: Optional[str] = None
+    location: Optional[str] = None
+    source: str = "google"
+
+class CalendarEventsResponse(BaseModel):
+    events: list[CalendarEvent]
