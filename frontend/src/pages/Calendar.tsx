@@ -90,6 +90,12 @@ export default function CalendarPage() {
     return grouped
   }, [events, weekDays])
 
+  const weekStartLabel = useMemo(() => {
+    const firstDay = weekDays[0]
+    if (!firstDay) return ''
+    return firstDay.toLocaleDateString()
+  }, [weekDays])
+
   useEffect(() => {
     if (!supabase) {
       return
@@ -228,8 +234,7 @@ export default function CalendarPage() {
             className="rounded-full font-mono text-xs uppercase tracking-widest"
           >
             <Link to="/">
-              Back
-              Timer
+              Back to Timer
             </Link>
           </Button>
         </div>
@@ -301,7 +306,7 @@ export default function CalendarPage() {
             <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
               1 Week Calendar
             </h2>
-            <p className="text-xs text-muted-foreground">Showing next 7 days starting today</p>
+            <p className="text-xs text-muted-foreground">Showing next 7 days starting {weekStartLabel}</p>
           </div>
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
