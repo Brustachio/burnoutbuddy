@@ -1,4 +1,4 @@
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   settings: TimerSettings;
   onSave: (s: TimerSettings) => void;
+  initialSection?: SectionId;
 }
 
 const sections = [
@@ -299,9 +300,21 @@ function SystemSection() {
 
 // ── Main dialog ───────────────────────────────────────────────────────────────
 
-export const SettingsDialog = ({ open, onOpenChange, settings, onSave }: Props) => {
+export const SettingsDialog = ({
+  open,
+  onOpenChange,
+  settings,
+  onSave,
+  initialSection = "timer",
+}: Props) => {
   const [active, setActive] = useState<SectionId>("timer");
   const [draft, setDraft] = useState(settings);
+
+  useEffect(() => {
+    if (open) {
+      setActive(initialSection);
+    }
+  }, [open, initialSection]);
 
   const update = (key: keyof TimerSettings, value: string) => {
     const num = Math.max(1, parseInt(value) || 1);
