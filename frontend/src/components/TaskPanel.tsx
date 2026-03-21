@@ -100,7 +100,7 @@ export const TaskPanel = () => {
 
   return (
     <div
-      className="fixed bottom-6 left-6 z-40 flex flex-col rounded-xl border border-border bg-card/90 backdrop-blur-md shadow-2xl"
+      className="fixed bottom-6 left-6 z-40 flex flex-col rounded-md border border-border bg-card"
       style={{ width: 300, height: panelHeight }}
     >
       {/* Resize handle */}
@@ -113,7 +113,7 @@ export const TaskPanel = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 pb-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Tasks
         </span>
         <button
@@ -127,7 +127,7 @@ export const TaskPanel = () => {
       {/* Task list */}
       <div className="flex-1 overflow-y-auto px-3 scrollbar-thin">
         {sorted.length === 0 && (
-          <p className="py-6 text-center font-mono text-[10px] text-muted-foreground">
+          <p className="py-6 text-center text-[10px] text-muted-foreground">
             No tasks yet
           </p>
         )}
@@ -148,7 +148,7 @@ export const TaskPanel = () => {
               className="h-3.5 w-3.5"
             />
             <span
-              className={`flex-1 truncate font-mono text-xs ${
+              className={`flex-1 truncate text-xs ${
                 task.done
                   ? "text-muted-foreground line-through"
                   : "text-foreground"
@@ -162,7 +162,7 @@ export const TaskPanel = () => {
             >
               <Badge
                 variant="outline"
-                className="cursor-pointer font-mono text-[9px] uppercase tracking-widest border-border text-muted-foreground hover:text-foreground px-1.5 py-0"
+                className="cursor-pointer text-[9px] border-border text-muted-foreground hover:text-foreground px-1.5 py-0"
               >
                 {PRIORITY_LABELS[task.priority]}
               </Badge>
@@ -184,7 +184,7 @@ export const TaskPanel = () => {
           onChange={(e) => setNewTask(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
           placeholder="Add task…"
-          className="h-7 bg-secondary/50 border-none font-mono text-xs placeholder:text-muted-foreground/60"
+          className="h-7 bg-secondary/50 border-none text-xs placeholder:text-muted-foreground/60"
         />
         <Button
           onClick={addTask}

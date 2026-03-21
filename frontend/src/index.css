@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @plugin "tailwindcss-animate";
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --background: #f6f8fa;
@@ -31,27 +31,27 @@
 }
 
 .dark {
-  --background: #0d1117;
-  --foreground: #c9d1d9;
-  --card: #161b22;
-  --card-foreground: #c9d1d9;
-  --popover: #161b22;
-  --popover-foreground: #c9d1d9;
-  --primary: #58a6ff;
-  --primary-foreground: #0d1117;
-  --secondary: #1a1a1a;
-  --secondary-foreground: #c9d1d9;
-  --muted: #30363d;
-  --muted-foreground: #8b949e;
-  --accent: #3fb950;
-  --accent-foreground: #0d1117;
+  --background: #191919;
+  --foreground: #D4D4D4;
+  --card: #202020;
+  --card-foreground: #D4D4D4;
+  --popover: #202020;
+  --popover-foreground: #D4D4D4;
+  --primary: #D4D4D4;
+  --primary-foreground: #191919;
+  --secondary: #252525;
+  --secondary-foreground: #D4D4D4;
+  --muted: #2E2E2E;
+  --muted-foreground: #9B9B9B;
+  --accent: #2E2E2E;
+  --accent-foreground: #D4D4D4;
   --destructive: #f85149;
-  --destructive-foreground: #0d1117;
-  --border: #30363d;
-  --input: #30363d;
-  --ring: #58a6ff;
-  --chart-1: #58a6ff;
-  --chart-2: #3fb950;
+  --destructive-foreground: #191919;
+  --border: #2E2E2E;
+  --input: #2E2E2E;
+  --ring: #D4D4D4;
+  --chart-1: #D4D4D4;
+  --chart-2: #9B9B9B;
   --chart-3: #f85149;
   --chart-4: #e3b341;
   --chart-5: #8250df;
@@ -89,6 +89,7 @@
 @layer base {
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
   }
   * {
     @apply border-border;

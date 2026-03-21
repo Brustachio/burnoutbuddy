@@ -17,13 +17,13 @@ interface StatRowProps {
 
 function StatRow({ label, value, accent }: StatRowProps) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
-      <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
+      <span className="text-xs text-muted-foreground">
         {label}
       </span>
       <span
-        className={`font-mono text-xs tabular-nums ${
-          accent ? "text-blue-400" : "text-foreground"
+        className={`text-xs tabular-nums ${
+          accent ? "text-foreground font-medium" : "text-foreground"
         }`}
       >
         {value}
@@ -58,10 +58,10 @@ export const SessionStats = () => {
   }
 
   return (
-    <div className="fixed bottom-36 right-6 z-40 w-64 rounded-xl border border-white/10 bg-card/90 backdrop-blur-md shadow-2xl flex flex-col">
+    <div className="fixed bottom-36 right-6 z-40 w-64 rounded-md border border-border bg-card flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+        <span className="text-xs text-muted-foreground">
           Session Stats
         </span>
         <button

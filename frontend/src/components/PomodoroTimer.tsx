@@ -157,15 +157,15 @@ export const PomodoroTimer = ({ settings }: Props) => {
       {/* Clock face — dimmed when PiP is active */}
       <div className={pipWindow ? "opacity-30 transition-opacity" : "transition-opacity"}>
         {/* Phase label */}
-        <span className="mb-4 block font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground text-center">
+        <span className="mb-4 block text-sm text-muted-foreground text-center">
           {phaseLabel}
         </span>
 
         {/* Giant clock */}
         <div className="relative mb-6">
           <span
-            className="font-mono font-bold tracking-tight text-foreground select-none"
-            style={{ fontSize: "clamp(5rem, 15vw, 12rem)" }}
+            className="font-medium tracking-tighter text-foreground select-none"
+            style={{ fontSize: "clamp(5rem, 15vw, 12rem)", fontVariantNumeric: "tabular-nums" }}
           >
             {formatTime(secondsLeft)}
           </span>
@@ -204,7 +204,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
         </Button>
         <Button
           onClick={() => setIsRunning(!isRunning)}
-          className="h-11 w-20 rounded-full font-mono text-xs uppercase tracking-widest"
+          className="h-11 w-20 rounded-md"
         >
           {isRunning ? (
             <Pause className="h-4 w-4" />
@@ -245,8 +245,8 @@ export const PomodoroTimer = ({ settings }: Props) => {
       {pipWindow && ReactDOM.createPortal(
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100vw", height: "100vh", backgroundColor: "var(--background)" }}>
           <span
-            className="font-mono font-bold tracking-tight text-foreground select-none"
-            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)" }}
+            className="font-medium tracking-tighter text-foreground select-none"
+            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)", fontVariantNumeric: "tabular-nums" }}
           >
             {formatTime(secondsLeft)}
           </span>
