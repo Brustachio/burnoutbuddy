@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import { Plus, X, GripVertical, ChevronUp, ListTodo } from "lucide-react";
 
 interface Task {
