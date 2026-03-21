@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/context/AuthContext'
-import { supabase } from '@/lib/supabase'
+import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -74,10 +74,16 @@ export default function CalendarPage() {
   }, [events])
 
   useEffect(() => {
+    if (!supabase) {
+      return
+    }
+
+    const supabaseClient = supabase
+
     const initializeGoogleSession = async () => {
       const {
         data: { session },
-      } = await supabase.auth.getSession()
+      } = await supabaseClient.auth.getSession()
       setIsGoogleLinked(!!session)
       if (session) {
         setHasTriedGoogleLogin(true)
@@ -88,7 +94,7 @@ export default function CalendarPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       setIsGoogleLinked(!!session)
       if (session) {
         setHasTriedGoogleLogin(true)
@@ -137,6 +143,11 @@ export default function CalendarPage() {
   }
 
   const connectGoogle = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || 'Supabase is not configured.')
+      return
+    }
+
     const redirectTo = `${window.location.origin}/calendar`
     setHasTriedGoogleLogin(true)
 
@@ -162,6 +173,11 @@ export default function CalendarPage() {
   }
 
   const syncFromGoogle = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || 'Supabase is not configured.')
+      return
+    }
+
     if (!isGoogleLinked) {
       setError('Use Login with Google first to link your calendar account.')
       return
@@ -233,16 +249,23 @@ export default function CalendarPage() {
         <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 space-y-1">
             <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Login
+              Login Page
             </h2>
             <p className="text-sm text-muted-foreground">
-              Start with Supabase Google OAuth, then click Update Calendar to load your events.
+              Start here first. Sign in with Google, then click Update Calendar to load your events.
             </p>
           </div>
+
+          {!hasSupabaseConfig && (
+            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {supabaseConfigError}
+            </div>
+          )}
 
           <div className="space-y-3">
             <Button
               onClick={connectGoogle}
+              disabled={!hasSupabaseConfig}
               className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
             >
               Login With Google (Supabase)
