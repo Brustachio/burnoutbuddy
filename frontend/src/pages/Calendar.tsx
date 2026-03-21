@@ -184,6 +184,7 @@ export default function CalendarPage() {
       } = await supabase.auth.getSession()
 
       const supabaseToken = session?.access_token || ''
+      const googleToken = session?.provider_token || ''
       const headers: Record<string, string> = {}
       const bearerToken = supabaseToken
 
@@ -192,6 +193,9 @@ export default function CalendarPage() {
       }
       if (supabaseToken) {
         headers['X-Supabase-Access-Token'] = supabaseToken
+      }
+      if (googleToken) {
+        headers['X-Google-Access-Token'] = googleToken
       }
 
       const response = await fetch(`${API_URL}/api/calendar/google/events`, {
