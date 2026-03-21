@@ -52,9 +52,13 @@ function formatDateTime(raw?: string): string {
 }
 
 export default function CalendarPage() {
-  const { isAuthenticated, login, logout } = useAuth()
+  const { isAuthenticated, login, register, logout } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [accountMode, setAccountMode] = useState<'login' | 'register'>('login')
+  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -80,12 +84,32 @@ export default function CalendarPage() {
     setIsAuthLoading(false)
   }
 
-  const connectGoogle = () => {
-    if (!isAuthenticated) {
-      setError('Sign in to your BurnoutBuddy account before linking Google Calendar.')
+  const handleAppRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAuthError(null)
+
+    if (password !== confirmPassword) {
+      setAuthError('Passwords do not match.')
       return
     }
 
+    setIsAuthLoading(true)
+
+    const result = await register({
+      email,
+      username,
+      password,
+      confirmPassword,
+    })
+
+    if (!result.success) {
+      setAuthError(result.error || 'Account registration failed.')
+    }
+
+    setIsAuthLoading(false)
+  }
+
+  const connectGoogle = () => {
     const returnTo = encodeURIComponent(window.location.href)
     window.location.href = `${API_URL}/api/calendar/google/connect?return_to=${returnTo}`
   }
@@ -100,7 +124,8 @@ export default function CalendarPage() {
 
   const syncFromGoogle = async () => {
     if (!isAuthenticated) {
-      setError('Sign in to your BurnoutBuddy account first.')
+      setShowUpdatePrompt(true)
+      setError('Before updating calendar, choose Google sign-in or app login/create account.')
       return
     }
 
@@ -124,6 +149,7 @@ export default function CalendarPage() {
       const incoming = Array.isArray(data.events) ? data.events : []
       setEvents(incoming)
       setStatus(`Synced ${incoming.length} events from Google Calendar.`)
+      setShowUpdatePrompt(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sync failed.')
     } finally {
@@ -173,35 +199,104 @@ export default function CalendarPage() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleAppLogin} className="space-y-3">
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email"
-                  className="font-mono text-xs"
-                  required
-                />
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="font-mono text-xs"
-                  required
-                />
-                {authError && <p className="text-xs text-destructive">{authError}</p>}
-                <Button
-                  type="submit"
-                  disabled={isAuthLoading}
-                  className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                >
-                  {isAuthLoading ? 'Signing In...' : 'Sign In To App'}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Need an account? Use Settings -&gt; Account on the timer screen.
-                </p>
-              </form>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={accountMode === 'login' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setAccountMode('login')
+                      setAuthError(null)
+                    }}
+                    className="font-mono text-xs uppercase tracking-widest"
+                  >
+                    Login
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={accountMode === 'register' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setAccountMode('register')
+                      setAuthError(null)
+                    }}
+                    className="font-mono text-xs uppercase tracking-widest"
+                  >
+                    Create Account
+                  </Button>
+                </div>
+
+                {accountMode === 'login' ? (
+                  <form onSubmit={handleAppLogin} className="space-y-3">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    {authError && <p className="text-xs text-destructive">{authError}</p>}
+                    <Button
+                      type="submit"
+                      disabled={isAuthLoading}
+                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                    >
+                      {isAuthLoading ? 'Signing In...' : 'Sign In To App'}
+                    </Button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleAppRegister} className="space-y-3">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    <Input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Username"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    <Input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm Password"
+                      className="font-mono text-xs"
+                      required
+                    />
+                    {authError && <p className="text-xs text-destructive">{authError}</p>}
+                    <Button
+                      type="submit"
+                      disabled={isAuthLoading}
+                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                    >
+                      {isAuthLoading ? 'Creating Account...' : 'Create Account'}
+                    </Button>
+                  </form>
+                )}
+              </div>
             )}
           </section>
 
@@ -230,8 +325,32 @@ export default function CalendarPage() {
                 disabled={isLoading}
                 className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
               >
-                {isLoading ? 'Fetching Events...' : 'Fetch Linked Events'}
+                {isLoading ? 'Updating...' : 'Update Calendar'}
               </Button>
+
+              {showUpdatePrompt && !isAuthenticated && (
+                <div className="rounded-md border border-border bg-secondary/30 p-3 text-xs text-muted-foreground space-y-2">
+                  <p className="font-mono uppercase tracking-widest text-[10px]">Choose How To Continue</p>
+                  <p>Sign in with Google to connect calendar directly, or login/create app account first.</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      onClick={connectGoogle}
+                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                    >
+                      Sign In With Google
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowUpdatePrompt(false)}
+                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                    >
+                      Use App Login Below
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>
