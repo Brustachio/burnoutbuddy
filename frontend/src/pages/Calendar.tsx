@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { useAuth } from '@/context/AuthContext'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -53,16 +51,8 @@ function formatDateTime(raw?: string): string {
 }
 
 export default function CalendarPage() {
-  const { isAuthenticated, login, register, logout } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [username, setUsername] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [accountMode, setAccountMode] = useState<'login' | 'register'>('login')
   const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -103,44 +93,6 @@ export default function CalendarPage() {
 
     return () => subscription.unsubscribe()
   }, [])
-
-  const handleAppLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setAuthError(null)
-    setIsAuthLoading(true)
-
-    const result = await login({ email, password })
-    if (!result.success) {
-      setAuthError(result.error || 'Account login failed.')
-    }
-
-    setIsAuthLoading(false)
-  }
-
-  const handleAppRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setAuthError(null)
-
-    if (password !== confirmPassword) {
-      setAuthError('Passwords do not match.')
-      return
-    }
-
-    setIsAuthLoading(true)
-
-    const result = await register({
-      email,
-      username,
-      password,
-      confirmPassword,
-    })
-
-    if (!result.success) {
-      setAuthError(result.error || 'Account registration failed.')
-    }
-
-    setIsAuthLoading(false)
-  }
 
   const connectGoogle = async () => {
     if (!supabase) {
@@ -193,9 +145,8 @@ export default function CalendarPage() {
       } = await supabase.auth.getSession()
 
       const supabaseToken = session?.access_token || ''
-      const appToken = localStorage.getItem('token') || ''
       const headers: Record<string, string> = {}
-      const bearerToken = appToken || supabaseToken
+      const bearerToken = supabaseToken
 
       if (bearerToken) {
         headers.Authorization = `Bearer ${bearerToken}`
@@ -291,132 +242,6 @@ export default function CalendarPage() {
             )}
           </div>
         </section>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                App Account (Optional)
-              </h2>
-            </div>
-
-            <p className="mb-4 text-sm text-muted-foreground">
-              Use this if your backend requires app auth with JWT before calendar fetch.
-            </p>
-
-            {isAuthenticated ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">You are signed in to your app account.</p>
-                <Button
-                  variant="outline"
-                  onClick={logout}
-                  className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                >
-                  Log Out
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={accountMode === 'login' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setAccountMode('login')
-                      setAuthError(null)
-                    }}
-                    className="font-mono text-xs uppercase tracking-widest"
-                  >
-                    Login
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={accountMode === 'register' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setAccountMode('register')
-                      setAuthError(null)
-                    }}
-                    className="font-mono text-xs uppercase tracking-widest"
-                  >
-                    Create Account
-                  </Button>
-                </div>
-
-                {accountMode === 'login' ? (
-                  <form onSubmit={handleAppLogin} className="space-y-3">
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    {authError && <p className="text-xs text-destructive">{authError}</p>}
-                    <Button
-                      type="submit"
-                      disabled={isAuthLoading}
-                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                    >
-                      {isAuthLoading ? 'Signing In...' : 'Sign In To App'}
-                    </Button>
-                  </form>
-                ) : (
-                  <form onSubmit={handleAppRegister} className="space-y-3">
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    <Input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Username"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    <Input
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    <Input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm Password"
-                      className="font-mono text-xs"
-                      required
-                    />
-                    {authError && <p className="text-xs text-destructive">{authError}</p>}
-                    <Button
-                      type="submit"
-                      disabled={isAuthLoading}
-                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                    >
-                      {isAuthLoading ? 'Creating Account...' : 'Create Account'}
-                    </Button>
-                  </form>
-                )}
-              </div>
-            )}
-          </section>
-        </div>
 
         {(status || error) && (
           <div
