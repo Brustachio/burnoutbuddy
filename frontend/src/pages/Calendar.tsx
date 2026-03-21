@@ -224,8 +224,7 @@ export default function CalendarPage() {
             className="rounded-full font-mono text-xs uppercase tracking-widest"
           >
             <Link to="/">
-              Back
-              Timer
+              Back to Timer
             </Link>
           </Button>
         </div>
