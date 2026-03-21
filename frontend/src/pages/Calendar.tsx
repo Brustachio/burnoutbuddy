@@ -346,7 +346,7 @@ export default function CalendarPage() {
       <div className="mx-auto w-full max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
+            <h1 className="text-2xl sm:text-3xl font-medium">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isGoogleLinked
                 ? 'Your Google calendar syncs automatically when you open this page.'
@@ -356,7 +356,7 @@ export default function CalendarPage() {
           <Button
             asChild
             variant="outline"
-            className="rounded-full font-mono text-xs uppercase tracking-widest"
+            className="rounded-md text-xs"
           >
             <Link to="/">
               Back to Timer
@@ -364,10 +364,10 @@ export default function CalendarPage() {
           </Button>
         </div>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-md border border-border bg-card p-5">
           <div className="mb-4 space-y-1">
-            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              {isGoogleLinked ? 'Calendar Sync' : 'Login Page'}
+            <h2 className="text-xs text-muted-foreground">
+              {isGoogleLinked ? 'Calendar Sync' : 'Login'}
             </h2>
             {!isGoogleLinked && (
               <p className="text-sm text-muted-foreground">
@@ -418,7 +418,7 @@ export default function CalendarPage() {
 
         {(status || error) && (
           <div
-            className={`rounded-lg border px-4 py-3 text-sm ${
+            className={`rounded-md border px-4 py-3 text-sm ${
               error
                 ? 'border-destructive/40 text-destructive'
                 : isLoading
@@ -430,10 +430,10 @@ export default function CalendarPage() {
           </div>
         )}
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-md border border-border bg-card p-5">
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              1 Week Calendar
+            <h2 className="text-xs text-muted-foreground">
+              This week
             </h2>
             <p className="text-xs text-muted-foreground">Showing next 7 days starting {weekStartLabel}</p>
           </div>
@@ -445,7 +445,7 @@ export default function CalendarPage() {
 
               return (
                 <div key={key} className="rounded-md border border-border/70 bg-secondary/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {day.toLocaleDateString(undefined, {
                       weekday: 'short',
                       month: 'numeric',

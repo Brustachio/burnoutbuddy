@@ -44,8 +44,8 @@ const Index = () => {
         {/* Session stats — above the bottom-right action buttons */}
         <SessionStats />
 
-        {/* Bottom-right quick actions */}
-        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+        {/* Bottom-center quick actions */}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
