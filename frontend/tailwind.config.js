@@ -56,5 +56,8 @@ export default {
   		}
   	}
   },
-  plugins: [],
+  plugins: [
+	require("tailwindcss-animate"), // (Keep the shadcn ones if they are there)
+    require("daisyui")             // <-- Add this line!
+  ],
 }
