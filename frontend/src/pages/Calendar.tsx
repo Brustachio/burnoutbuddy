@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
 
 type CalendarEvent = {
   id?: string | number
@@ -126,13 +127,12 @@ export default function CalendarPage() {
       return
     }
 
-    const redirectTo = `${window.location.origin}/calendar`
     setHasTriedGoogleLogin(true)
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo,
+        redirectTo: OAUTH_REDIRECT_TO,
         scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
       },
     })
@@ -141,7 +141,7 @@ export default function CalendarPage() {
       const rawMessage = error.message || ''
       if (rawMessage.includes('Unsupported provider') || rawMessage.includes('provider is not enabled')) {
         setError(
-          'Supabase Google provider is not enabled. In Supabase Dashboard go to Authentication -> Providers -> Google, enable it, and add OAuth client ID/secret.'
+          'Supabase Google provider is not enabled. Enable Google in Supabase Auth Providers and set Google Cloud redirect URI to https://cewjshcnzejduanlxtjf.supabase.co/auth/v1/callback.'
         )
       } else {
         setError(rawMessage)
@@ -273,6 +273,10 @@ export default function CalendarPage() {
                 If you just completed Google login, click Update Calendar to load events.
               </p>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              OAuth redirect target: {OAUTH_REDIRECT_TO}
+            </p>
           </div>
         </section>
 
