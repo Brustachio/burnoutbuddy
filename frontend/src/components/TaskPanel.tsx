@@ -87,22 +87,22 @@ export const TaskPanel = () => {
     (a, b) => a.priority - b.priority || Number(a.done) - Number(b.done)
   );
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => setCollapsed(false)}
-        className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-      >
-        <ListTodo className="h-5 w-5" />
-      </button>
-    );
-  }
-
   return (
-    <div
-      className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col rounded-md border border-border bg-card"
-      style={{ width: 340, height: panelHeight }}
-    >
+    <div className="fixed left-6 top-1/2 -translate-y-1/2 z-40">
+      {collapsed ? (
+        <button
+          key="icon"
+          onClick={() => setCollapsed(false)}
+          className="popup-enter flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          <ListTodo className="h-5 w-5" />
+        </button>
+      ) : (
+        <div
+          key="panel"
+          className="popup-enter flex flex-col rounded-md border border-border bg-card"
+          style={{ width: 340, height: panelHeight }}
+        >
       {/* Resize handle */}
       <div
         onMouseDown={onResizeStart}
@@ -195,6 +195,8 @@ export const TaskPanel = () => {
           <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
+        </div>
+      )}
     </div>
   );
 };
