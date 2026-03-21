@@ -17,6 +17,7 @@ type CalendarEvent = {
   start_time?: string
   end_time?: string
   source?: string
+  all_day?: boolean
 }
 
 type CalendarApiResponse = {
@@ -45,6 +46,15 @@ function writeCachedEvents(nextEvents: CalendarEvent[]): void {
   }
 }
 
+function clearCachedEvents(): void {
+  try {
+    window.localStorage.removeItem(CALENDAR_CACHE_KEY)
+    window.localStorage.removeItem(CALENDAR_CACHE_TIME_KEY)
+  } catch {
+    // Best-effort cache cleanup.
+  }
+}
+
 function readCachedSyncTime(): string | null {
   try {
     return window.localStorage.getItem(CALENDAR_CACHE_TIME_KEY)
@@ -69,9 +79,25 @@ function formatDateTime(raw?: string): string {
 function eventStart(rawEvent: CalendarEvent): Date | null {
   const raw = rawEvent.start || rawEvent.start_time
   if (!raw) return null
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number)
+    if (!year || !month || !day) return null
+    return new Date(year, month - 1, day)
+  }
+
   const parsed = new Date(raw)
   if (Number.isNaN(parsed.getTime())) return null
   return parsed
+}
+
+function isAllDayEvent(event: CalendarEvent, start: Date): boolean {
+  if (event.all_day) return true
+
+  const raw = event.start || event.start_time || ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return true
+
+  return start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0
 }
 
 export default function CalendarPage() {
@@ -204,6 +230,27 @@ export default function CalendarPage() {
     }
   }
 
+  const logoutGoogle = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || 'Supabase is not configured.')
+      return
+    }
+
+    const { error: logoutError } = await supabase.auth.signOut()
+    if (logoutError) {
+      setError(logoutError.message || 'Failed to log out.')
+      return
+    }
+
+    setIsGoogleLinked(false)
+    setHasTriedGoogleLogin(false)
+    setHasAutoSyncedAfterLink(false)
+    setEvents([])
+    clearCachedEvents()
+    setError(null)
+    setStatus('Logged out of Google Calendar.')
+  }
+
   const parseApiResponse = async (response: Response): Promise<CalendarApiResponse> => {
     try {
       return (await response.json()) as CalendarApiResponse
@@ -225,7 +272,7 @@ export default function CalendarPage() {
 
     setIsLoading(true)
     setError(null)
-    setStatus(null)
+    setStatus('Syncing Google Calendar...')
 
     try {
       const {
@@ -247,7 +294,20 @@ export default function CalendarPage() {
         headers['X-Google-Access-Token'] = googleToken
       }
 
-      const response = await fetch(`${API_URL}/api/calendar/google/events`, {
+      const rangeStart = new Date()
+      rangeStart.setHours(0, 0, 0, 0)
+      const rangeEnd = new Date(rangeStart)
+      rangeEnd.setDate(rangeEnd.getDate() + 6)
+      rangeEnd.setHours(23, 59, 59, 999)
+
+      const query = new URLSearchParams({
+        time_min: rangeStart.toISOString(),
+        time_max: rangeEnd.toISOString(),
+        include_all_day: 'true',
+        include_past_today: 'true',
+      })
+
+      const response = await fetch(`${API_URL}/api/calendar/google/events?${query.toString()}`, {
         method: 'GET',
         headers,
       })
@@ -278,7 +338,6 @@ export default function CalendarPage() {
     }
 
     setHasAutoSyncedAfterLink(true)
-    setStatus('Updating calendar...')
     void syncFromGoogle()
   }, [hasAutoSyncedAfterLink, isGoogleLinked, syncFromGoogle])
 
@@ -334,8 +393,14 @@ export default function CalendarPage() {
               </Button>
             )}
 
-            {isLoading && (
-              <p className="text-xs text-muted-foreground">Updating calendar from Google...</p>
+            {isGoogleLinked && (
+              <Button
+                variant="outline"
+                onClick={logoutGoogle}
+                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+              >
+                Logout of Google Calendar
+              </Button>
             )}
 
             <p className="text-xs text-muted-foreground">
@@ -356,6 +421,8 @@ export default function CalendarPage() {
             className={`rounded-lg border px-4 py-3 text-sm ${
               error
                 ? 'border-destructive/40 text-destructive'
+                : isLoading
+                  ? 'border-amber-500/40 text-amber-700 dark:text-amber-400'
                 : 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
             }`}
           >
@@ -398,7 +465,9 @@ export default function CalendarPage() {
                           <p className="truncate text-sm font-medium">
                             {event.title || event.summary || 'Untitled event'}
                           </p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(start.toISOString())}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isAllDayEvent(event, start) ? 'All day' : formatDateTime(start.toISOString())}
+                          </p>
                         </div>
                       ))
                     )}
