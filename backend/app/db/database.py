@@ -1,50 +1,36 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.pool import AsyncAdaptedQueuePool
+from sqlalchemy.pool import NullPool
 from app.utils.logger import setup_logger
 from app.config import get_settings
-from urllib.parse import quote_plus
 
 settings = get_settings()
 logger = setup_logger(__name__)
 
-
 def get_database_url() -> str:
     if hasattr(settings, 'DATABASE_URL') and settings.DATABASE_URL:
         return settings.DATABASE_URL
-    
-    # If the .env is STILL being stubborn, fallback to Supabase string directly here
-    # return "postgresql+asyncpg://postgres.xxxxx:PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
-    
     raise ValueError("No database URL found")
 
-
 def create_engine_with_retry(database_url: str):
-    """
-    Creates an async engine with retry logic and appropriate configuration
-    based on the database type.
-    """
-    connect_args = {}
+    # CRITICAL: We use NullPool so we don't trip the Supabase Circuit Breaker
     pooling_args = {
-        "pool_pre_ping": True,
-        "pool_recycle": 3600,
+        "poolclass": NullPool,
         "echo": False,
     }
-
+    
+    connect_args = {}
+    
     if database_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
+        pooling_args = {}
     else:
-        pooling_args.update(
-            {
-                "poolclass": AsyncAdaptedQueuePool,
-                "pool_size": 20,
-                "max_overflow": 10,
-                "pool_timeout": 30,
-            }
-        )
+        # Prevent asyncpg from fighting the Supabase Pooler
+        connect_args["server_settings"] = {"jit": "off"}
+        connect_args["statement_cache_size"] = 0
+        connect_args["prepared_statement_cache_size"] = 0
 
     return create_async_engine(database_url, connect_args=connect_args, **pooling_args)
-
 
 # Create the engine
 engine = create_engine_with_retry(get_database_url())
@@ -54,18 +40,11 @@ AsyncSessionLocal = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False, autocommit=False, autoflush=False
 )
 
-
 class Base(DeclarativeBase):
     pass
 
-
 async def get_db() -> AsyncSession:
-    """
-    Dependency that provides a database session.
-    Ensures proper handling of connections and error cases.
-    """
     session = AsyncSessionLocal()
-    logger.debug("Creating new database session")
     try:
         yield session
     except Exception as e:
@@ -73,15 +52,9 @@ async def get_db() -> AsyncSession:
         await session.rollback()
         raise
     finally:
-        logger.debug("Closing database session")
         await session.close()
 
-
 async def init_db() -> None:
-    """
-    Initialize database tables and perform any startup database operations.
-    Includes retry logic for initial connection.
-    """
     logger.info("Initializing database")
     try:
         async with engine.begin() as conn:
