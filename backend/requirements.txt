@@ -53,6 +53,15 @@ uvicorn==0.35.0
 watchfiles==1.0.5
 websockets==15.0.1
 
+ 
+# LangChain + Gemini
+langchain
+langchain-google-genai
+langchain-core
+google-auth
+google-auth-oauthlib
+google-api-python-client
+
 # Testing
 pytest==8.4.1
 pytest-asyncio==0.23.7
