@@ -72,22 +72,28 @@ export const PomodoroTimer = ({ settings }: Props) => {
     setCompletedSessions(0);
   };
 
+  const skip = () => {
+    if (phase === "work") setCompletedSessions((s) => s + 1);
+    setPhaseIndex((i) => (i + 1) % cycle.length);
+  };
 
-  const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const seconds = String(secondsLeft % 60).padStart(2, "0");
+  const previous = () => {
+    setPhaseIndex((i) => (i - 1 + cycle.length) % cycle.length);
+  };
+
   const progress = 1 - secondsLeft / totalSeconds;
 
   const phaseLabel =
-    phase === "work" ? "Focus" : phase === "break" ? "Break" : "Long Break";
+    phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
 
   useEffect(() => {
     document.title = isRunning
-      ? `${phaseLabel} ${minutes}:${seconds} — BurnoutBuddy`
+      ? `${phaseLabel} ${formatTime(secondsLeft)} — BurnoutBuddy`
       : "BurnoutBuddy";
     return () => {
       document.title = "BurnoutBuddy";
     };
-  }, [secondsLeft, isRunning, phaseLabel, minutes, seconds]);
+  }, [secondsLeft, isRunning, phaseLabel]);
       
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
