@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str = "FastAPI React Starter Template"
     ENVIRONMENT: str = "development"
     DATABASE_URL: str = ""
+    SUPABASE_URL: str = ""      
+    SUPABASE_KEY: str = ""   
     TEST_DATABASE_URL: Optional[str] = "sqlite+aiosqlite:///./test_app.db"
     CORS_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:3000"]
     API_PREFIX: str = "/api"

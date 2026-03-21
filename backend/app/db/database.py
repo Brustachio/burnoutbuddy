@@ -10,19 +10,12 @@ logger = setup_logger(__name__)
 
 
 def get_database_url() -> str:
-    """
-    Constructs the database URL based on configuration.
-    Prioritizes TEST_DATABASE_URL if set in 'testing' environment.
-    Returns PostgreSQL URL if credentials are provided, otherwise falls back to SQLite.
-    """
-    if settings.ENVIRONMENT == "testing" and settings.TEST_DATABASE_URL:
-        return settings.TEST_DATABASE_URL
-
-    if settings.DB_NAME:
-        # PostgreSQL connection
-        password = quote_plus(settings.DB_PASSWORD) if settings.DB_PASSWORD else ""
-        return f"postgresql+asyncpg://{settings.DB_USER}:{password}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-
+    if hasattr(settings, 'DATABASE_URL') and settings.DATABASE_URL:
+        return settings.DATABASE_URL
+    
+    # If the .env is STILL being stubborn, fallback to Supabase string directly here
+    # return "postgresql+asyncpg://postgres.xxxxx:PASSWORD@aws-0-us-west-1.pooler.supabase.com:5432/postgres"
+    
     raise ValueError("No database URL found")
 
 
