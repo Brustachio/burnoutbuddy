@@ -2,8 +2,9 @@ import { useState } from "react";
 import { PomodoroTimer } from "@/components/PomodoroTimer";
 import { TaskPanel } from "@/components/TaskPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
-import { Settings as SettingsIcon } from "lucide-react";
+import { CalendarDays, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 export interface TimerSettings {
   workMinutes: number;
@@ -31,8 +32,18 @@ const Index = () => {
       {/* Bottom-left task panel */}
       <TaskPanel />
 
-      {/* Bottom-right settings button */}
+      {/* Bottom-right quick actions */}
       <div className="fixed bottom-6 right-6 z-40 flex items-center gap-2">
+        <Button
+          asChild
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-full bg-secondary/80 backdrop-blur-sm hover:bg-accent"
+        >
+          <Link to="/calendar" aria-label="Open calendar integration">
+            <CalendarDays className="h-5 w-5 text-muted-foreground" />
+          </Link>
+        </Button>
         <Button
           variant="ghost"
           size="icon"
