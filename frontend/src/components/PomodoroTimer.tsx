@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import { Play, Pause, RotateCcw, SkipForward, SkipBack } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { TimerSettings } from "@/pages/Index";
 
@@ -9,11 +9,34 @@ interface Props {
   settings: TimerSettings;
 }
 
+function formatTime(totalSecs: number): string {
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (hours > 0) return `${hours}:${mm}:${ss}`;
+  return `${mm}:${ss}`;
+}
+
 export const PomodoroTimer = ({ settings }: Props) => {
-  const [phase, setPhase] = useState<Phase>("work");
+  const [phaseIndex, setPhaseIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
+
+  const buildCycle = (): Phase[] => {
+    const cycle: Phase[] = [];
+    for (let i = 0; i < settings.sessionsBeforeLongBreak; i++) {
+      cycle.push("work");
+      if (i < settings.sessionsBeforeLongBreak - 1) cycle.push("break");
+      else cycle.push("longBreak");
+    }
+    return cycle;
+  };
+
+  const cycle = buildCycle();
+  const phase = cycle[phaseIndex % cycle.length];
 
   const totalSeconds =
     phase === "work"
@@ -25,50 +48,52 @@ export const PomodoroTimer = ({ settings }: Props) => {
   useEffect(() => {
     setSecondsLeft(totalSeconds);
     setIsRunning(false);
-  }, [settings, phase]);
+  }, [settings]);
+
+  useEffect(() => {
+    setSecondsLeft(totalSeconds);
+    setIsRunning(false);
+  }, [phaseIndex]);
 
   useEffect(() => {
     if (!isRunning) return;
     if (secondsLeft <= 0) {
-      if (phase === "work") {
-        const next =
-          (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
-            ? "longBreak"
-            : "break";
-        setCompletedSessions((s) => s + 1);
-        setPhase(next);
-      } else {
-        setPhase("work");
-      }
+      if (phase === "work") setCompletedSessions((s) => s + 1);
+      setPhaseIndex((i) => (i + 1) % cycle.length);
       return;
     }
     const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearInterval(id);
-  }, [isRunning, secondsLeft, phase, completedSessions, settings]);
+  }, [isRunning, secondsLeft, phase]);
 
   const reset = () => {
     setIsRunning(false);
-    setPhase("work");
-    setSecondsLeft(settings.workMinutes * 60);
+    setPhaseIndex(0);
     setCompletedSessions(0);
   };
 
+  const skip = () => {
+    if (phase === "work") setCompletedSessions((s) => s + 1);
+    setPhaseIndex((i) => (i + 1) % cycle.length);
+  };
 
-  const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const seconds = String(secondsLeft % 60).padStart(2, "0");
+  const previous = () => {
+    setPhaseIndex((i) => (i - 1 + cycle.length) % cycle.length);
+  };
+
   const progress = 1 - secondsLeft / totalSeconds;
 
   const phaseLabel =
-    phase === "work" ? "Focus" : phase === "break" ? "Break" : "Long Break";
+    phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
 
   useEffect(() => {
     document.title = isRunning
-      ? `${phaseLabel} ${minutes}:${seconds} — BurnoutBuddy`
+      ? `${phaseLabel} ${formatTime(secondsLeft)} — BurnoutBuddy`
       : "BurnoutBuddy";
     return () => {
       document.title = "BurnoutBuddy";
     };
-  }, [secondsLeft, isRunning, phaseLabel, minutes, seconds]);
+  }, [secondsLeft, isRunning, phaseLabel]);
       
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
@@ -83,7 +108,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
           className="font-mono font-bold tracking-tight text-foreground select-none"
           style={{ fontSize: "clamp(5rem, 15vw, 12rem)" }}
         >
-          {minutes}:{seconds}
+          {formatTime(secondsLeft)}
         </span>
       </div>
 
@@ -100,7 +125,15 @@ export const PomodoroTimer = ({ settings }: Props) => {
       </div>
 
       {/* Controls */}
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={previous}
+          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+        >
+          <SkipBack className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -118,6 +151,14 @@ export const PomodoroTimer = ({ settings }: Props) => {
           ) : (
             <Play className="h-4 w-4" />
           )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={skip}
+          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+        >
+          <SkipForward className="h-4 w-4" />
         </Button>
       </div>
 
