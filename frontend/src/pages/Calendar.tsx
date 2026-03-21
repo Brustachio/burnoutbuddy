@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const OAUTH_REDIRECT_TO = import.meta.env.VITE_SUPABASE_REDIRECT_TO || `${window.location.origin}/calendar`
+const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
 
 type CalendarEvent = {
   id?: string | number
