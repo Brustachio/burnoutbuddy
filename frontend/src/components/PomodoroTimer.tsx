@@ -154,25 +154,23 @@ export const PomodoroTimer = ({ settings }: Props) => {
       
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
-      {/* Clock face — dimmed when PiP is active */}
-      <div className={pipWindow ? "opacity-30 transition-opacity" : "transition-opacity"}>
-        {/* Phase label */}
-        <span className="mb-4 block font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground text-center">
+      {/* Main Stack — phase label + clock + dots + controls */}
+      <div className={`flex flex-col items-center${pipWindow ? " opacity-30 transition-opacity" : " transition-opacity"}`}>
+        {/* Phase label — tight to the timer */}
+        <span className="block text-sm tracking-widest uppercase text-muted-foreground text-center" style={{ marginBottom: "18px" }}>
           {phaseLabel}
         </span>
 
         {/* Giant clock */}
-        <div className="relative mb-6">
-          <span
-            className="font-mono font-bold tracking-tight text-foreground select-none"
-            style={{ fontSize: "clamp(5rem, 15vw, 12rem)" }}
-          >
-            {formatTime(secondsLeft)}
-          </span>
-        </div>
+        <span
+          className="font-medium tracking-tighter text-foreground select-none leading-none"
+          style={{ fontSize: "clamp(6rem, 18vw, 14rem)", fontVariantNumeric: "tabular-nums" }}
+        >
+          {formatTime(secondsLeft)}
+        </span>
 
-        {/* Session dots */}
-        <div className="mb-8 flex justify-center gap-2.5">
+        {/* Session dots — centered between timer and controls */}
+        <div className="mt-5 mb-5 flex justify-center gap-2.5">
           {Array.from({ length: settings.sessionsBeforeLongBreak }).map((_, i) => (
             <div
               key={i}
@@ -182,55 +180,55 @@ export const PomodoroTimer = ({ settings }: Props) => {
             />
           ))}
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={previous}
-          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
-        >
-          <SkipBack className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={reset}
-          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
-        >
-          <RotateCcw className="h-4 w-4" />
-        </Button>
-        <Button
-          onClick={() => setIsRunning(!isRunning)}
-          className="h-11 w-20 rounded-full font-mono text-xs uppercase tracking-widest"
-        >
-          {isRunning ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={skip}
-          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
-        >
-          <SkipForward className="h-4 w-4" />
-        </Button>
-        {isPiPSupported && (
+        {/* Controls */}
+        <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => { togglePiP().catch(console.error); }}
+            onClick={previous}
             className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
-            aria-label={pipWindow ? "Exit mini-player" : "Open mini-player"}
           >
-            <PictureInPicture2 className="h-4 w-4" />
+            <SkipBack className="h-4 w-4" />
           </Button>
-        )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={reset}
+            className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button
+            onClick={() => setIsRunning(!isRunning)}
+            className="h-11 w-20 rounded-md"
+          >
+            {isRunning ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={skip}
+            className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+          >
+            <SkipForward className="h-4 w-4" />
+          </Button>
+          {isPiPSupported && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { togglePiP().catch(console.error); }}
+              className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+              aria-label={pipWindow ? "Exit mini-player" : "Open mini-player"}
+            >
+              <PictureInPicture2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Subtle progress bar at very bottom */}
@@ -241,15 +239,45 @@ export const PomodoroTimer = ({ settings }: Props) => {
         />
       </div>
 
-      {/* PiP portal — renders timer centered in the floating window */}
+      {/* PiP portal — borderless, with inline Start/Stop control */}
       {pipWindow && ReactDOM.createPortal(
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100vw", height: "100vh", backgroundColor: "var(--background)" }}>
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "16px",
+          width: "100vw",
+          height: "100vh",
+          background: "transparent",
+        }}>
           <span
-            className="font-mono font-bold tracking-tight text-foreground select-none"
-            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)" }}
+            className="font-medium tracking-tighter text-foreground select-none leading-none"
+            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)", fontVariantNumeric: "tabular-nums" }}
           >
             {formatTime(secondsLeft)}
           </span>
+          <button
+            onClick={() => setIsRunning((r) => !r)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "50%",
+              border: "1px solid var(--border)",
+              background: "var(--secondary)",
+              color: "var(--foreground)",
+              cursor: "pointer",
+            }}
+          >
+            {isRunning ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            )}
+          </button>
         </div>,
         pipWindow.document.body
       )}
