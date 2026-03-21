@@ -1,10 +1,16 @@
 from sqlalchemy import delete, select, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Header
 from datetime import datetime, timezone, timedelta
+import asyncio
 import httpx
+
+from app.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 from app.db.database import get_db
 from app.models.models import DailyCheckin, PomodoroSession, Event, Task, User
@@ -20,6 +26,15 @@ from app.schemas.schemas import (
 )
 
 router = APIRouter()
+_calendar_sync_locks: dict[str, asyncio.Lock] = {}
+
+
+def get_calendar_sync_lock(user_id: str) -> asyncio.Lock:
+    lock = _calendar_sync_locks.get(user_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _calendar_sync_locks[user_id] = lock
+    return lock
 
 
 async def get_google_identity(
@@ -106,73 +121,95 @@ async def get_google_calendar_events(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    async with httpx.AsyncClient() as client:
-        cal_list_resp = await client.get(
-            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
-            headers={"Authorization": f"Bearer {x_google_access_token}"},
-        )
-        if cal_list_resp.status_code != 200:
-            raise HTTPException(status_code=cal_list_resp.status_code, detail="Failed to list calendars.")
-
-        calendar_ids = [c["id"] for c in cal_list_resp.json().get("items", [])]
-        if not calendar_ids:
-            calendar_ids = ["primary"]
-
-        now_utc = datetime.now(timezone.utc)
-        seven_days_utc = now_utc + timedelta(days=7)
-        now_str = now_utc.isoformat().replace("+00:00", "Z")
-        max_str = seven_days_utc.isoformat().replace("+00:00", "Z")
-
-        raw_all: list[dict] = []
-        for cal_id in calendar_ids:
-            resp = await client.get(
-                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+    lock = get_calendar_sync_lock(user.id)
+    async with lock:
+        async with httpx.AsyncClient() as client:
+            cal_list_resp = await client.get(
+                "https://www.googleapis.com/calendar/v3/users/me/calendarList",
                 headers={"Authorization": f"Bearer {x_google_access_token}"},
-                params={
-                    "timeMin": now_str,
-                    "timeMax": max_str,
-                    "maxResults": 50,
-                    "singleEvents": True,
-                    "orderBy": "startTime",
-                },
             )
-            if resp.status_code == 200:
-                raw_all.extend(resp.json().get("items", []))
+            if cal_list_resp.status_code != 200:
+                raise HTTPException(status_code=cal_list_resp.status_code, detail="Failed to list calendars.")
 
-    seen: set[tuple] = set()
-    events: list[dict] = []
-    for raw in raw_all:
-        parsed = parse_google_event(raw)
-        key = (parsed["id"], parsed["start"])
-        if key not in seen:
-            seen.add(key)
-            events.append(parsed)
+            calendar_ids = [c["id"] for c in cal_list_resp.json().get("items", [])]
+            if not calendar_ids:
+                calendar_ids = ["primary"]
 
-    now_dt = datetime.now()
-    delete_stmt = delete(Event).where(
-        and_(Event.user_id == user.id, Event.source == "google", Event.start_time >= now_dt)
-    )
-    await db.execute(delete_stmt)
+            now_utc = datetime.now(timezone.utc)
+            seven_days_utc = now_utc + timedelta(days=7)
+            now_str = now_utc.isoformat().replace("+00:00", "Z")
+            max_str = seven_days_utc.isoformat().replace("+00:00", "Z")
 
-    for e in events:
-        try:
-            start_dt = datetime.fromisoformat(e["start"].replace("Z", "+00:00")).replace(tzinfo=None)
-            end_dt = datetime.fromisoformat(e["end"].replace("Z", "+00:00")).replace(tzinfo=None)
-            db_event = Event(
-                user_id=user.id,
-                title=e["title"],
-                start_time=start_dt,
-                end_time=end_dt,
-                source="google",
-                workload_weight=3,
-                course=e.get("description", "")[:50] if e.get("description") else "",
+            raw_all: list[dict] = []
+            for cal_id in calendar_ids:
+                resp = await client.get(
+                    f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+                    headers={"Authorization": f"Bearer {x_google_access_token}"},
+                    params={
+                        "timeMin": now_str,
+                        "timeMax": max_str,
+                        "maxResults": 50,
+                        "singleEvents": True,
+                        "orderBy": "startTime",
+                    },
+                )
+                if resp.status_code == 200:
+                    raw_all.extend(resp.json().get("items", []))
+
+        seen: set[tuple] = set()
+        events: list[dict] = []
+        for raw in raw_all:
+            parsed = parse_google_event(raw)
+            key = (parsed["id"], parsed["start"], parsed["end"], parsed["title"])
+            if key not in seen:
+                seen.add(key)
+                events.append(parsed)
+
+        # Collect all google_event_ids from current fetch
+        current_google_event_ids = {e["id"] for e in events if e["id"]}
+        
+        # Delete events that were in the database but are no longer in Google Calendar
+        delete_stmt = delete(Event).where(
+            and_(
+                Event.user_id == user.id,
+                Event.source == "google",
+                ~Event.google_event_id.in_(current_google_event_ids)
             )
-            db.add(db_event)
-        except Exception:
-            continue
+        )
+        await db.execute(delete_stmt)
 
-    await db.commit()
-    return {"events": events}
+        for e in events:
+            try:
+                start_dt = datetime.fromisoformat(e["start"].replace("Z", "+00:00")).replace(tzinfo=None)
+                end_dt = datetime.fromisoformat(e["end"].replace("Z", "+00:00")).replace(tzinfo=None)
+                
+                # Upsert: insert if new, update if exists (identified by user_id + google_event_id + source)
+                stmt = pg_insert(Event).values(
+                    user_id=user.id,
+                    google_event_id=e["id"],
+                    title=e["title"],
+                    start_time=start_dt,
+                    end_time=end_dt,
+                    source="google",
+                    workload_weight=3,
+                    course=e.get("description", "")[:50] if e.get("description") else "",
+                ).on_conflict_do_update(
+                    index_elements=['user_id', 'google_event_id', 'source'],
+                    set_=dict(
+                        title=e["title"],
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        workload_weight=3,
+                        course=e.get("description", "")[:50] if e.get("description") else "",
+                    )
+                )
+                await db.execute(stmt)
+            except Exception as ex:
+                logger.error(f"Error upserting event {e.get('id')}: {str(ex)}")
+                continue
+
+        await db.commit()
+        return {"events": events}
 
 
 # --- LANGCHAIN AI PLANNER (GEMINI 2.5 FLASH) ---

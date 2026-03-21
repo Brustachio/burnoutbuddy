@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, UniqueConstraint
 from app.db import Base
 
 class User(Base):
@@ -26,12 +26,17 @@ class Event(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"))
+    google_event_id = Column(String, nullable=True, index=True)  # Google Calendar event ID
     title = Column(String)
     start_time = Column(DateTime)
     end_time = Column(DateTime)
     source = Column(String)
     workload_weight = Column(Integer)
     course = Column(String)
+    
+    __table_args__ = (
+        UniqueConstraint('user_id', 'google_event_id', 'source', name='uq_user_google_event_source'),
+    )
 
 class Task(Base):
     __tablename__ = "tasks"
