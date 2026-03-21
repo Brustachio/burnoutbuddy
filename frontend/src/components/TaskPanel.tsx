@@ -18,7 +18,7 @@ export const TaskPanel = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState("");
   const [collapsed, setCollapsed] = useState(false);
-  const [panelHeight, setPanelHeight] = useState(320);
+  const [panelHeight, setPanelHeight] = useState(520);
   const dragRef = useRef<{ startY: number; startH: number } | null>(null);
 
   const addTask = () => {
@@ -70,7 +70,7 @@ export const TaskPanel = () => {
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
         const delta = dragRef.current.startY - ev.clientY;
-        setPanelHeight(Math.max(160, Math.min(600, dragRef.current.startH + delta)));
+        setPanelHeight(Math.max(200, Math.min(800, dragRef.current.startH + delta)));
       };
       const onUp = () => {
         dragRef.current = null;
@@ -91,7 +91,7 @@ export const TaskPanel = () => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="fixed bottom-6 left-6 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
       >
         <ListTodo className="h-5 w-5" />
       </button>
@@ -100,8 +100,8 @@ export const TaskPanel = () => {
 
   return (
     <div
-      className="fixed bottom-6 left-6 z-40 flex flex-col rounded-md border border-border bg-card"
-      style={{ width: 300, height: panelHeight }}
+      className="fixed left-6 top-1/2 -translate-y-1/2 z-40 flex flex-col rounded-md border border-border bg-card"
+      style={{ width: 340, height: panelHeight }}
     >
       {/* Resize handle */}
       <div
@@ -113,7 +113,7 @@ export const TaskPanel = () => {
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 pb-2">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Tasks
         </span>
         <button
@@ -127,7 +127,7 @@ export const TaskPanel = () => {
       {/* Task list */}
       <div className="flex-1 overflow-y-auto px-3 scrollbar-thin">
         {sorted.length === 0 && (
-          <p className="py-6 text-center text-[10px] text-muted-foreground">
+          <p className="py-8 text-center text-xs text-muted-foreground">
             No tasks yet
           </p>
         )}
@@ -139,7 +139,7 @@ export const TaskPanel = () => {
             onDragEnter={() => handleDragEnter(idx)}
             onDragEnd={handleDragEnd}
             onDragOver={(e) => e.preventDefault()}
-            className="group flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-secondary/60 cursor-grab active:cursor-grabbing"
+            className="group flex items-center gap-2 rounded-md px-3 py-2.5 transition-colors hover:bg-secondary/60 cursor-grab active:cursor-grabbing"
           >
             <GripVertical className="h-3 w-3 text-border opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
             <Checkbox
@@ -148,7 +148,7 @@ export const TaskPanel = () => {
               className="h-3.5 w-3.5"
             />
             <span
-              className={`flex-1 truncate text-xs ${
+              className={`flex-1 truncate text-sm ${
                 task.done
                   ? "text-muted-foreground line-through"
                   : "text-foreground"
@@ -184,13 +184,13 @@ export const TaskPanel = () => {
           onChange={(e) => setNewTask(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && addTask()}
           placeholder="Add task…"
-          className="h-7 bg-secondary/50 border-none text-xs placeholder:text-muted-foreground/60"
+          className="h-9 bg-secondary/50 border-none text-sm placeholder:text-muted-foreground/60"
         />
         <Button
           onClick={addTask}
           size="icon"
           variant="ghost"
-          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
         >
           <Plus className="h-3.5 w-3.5" />
         </Button>

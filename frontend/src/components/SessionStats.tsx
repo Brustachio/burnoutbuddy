@@ -17,13 +17,13 @@ interface StatRowProps {
 
 function StatRow({ label, value, accent }: StatRowProps) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-      <span className="text-xs text-muted-foreground">
+    <div className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
+      <span className="text-sm text-muted-foreground">
         {label}
       </span>
       <span
-        className={`text-xs tabular-nums ${
-          accent ? "text-foreground font-medium" : "text-foreground"
+        className={`text-sm tabular-nums ${
+          accent ? "text-foreground font-semibold" : "text-foreground"
         }`}
       >
         {value}
@@ -49,7 +49,7 @@ export const SessionStats = () => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="fixed bottom-20 right-6 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        className="fixed bottom-6 right-6 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         aria-label="Open session stats"
       >
         <BarChart2 className="h-5 w-5" />
@@ -58,10 +58,10 @@ export const SessionStats = () => {
   }
 
   return (
-    <div className="fixed bottom-36 right-6 z-40 w-64 rounded-md border border-border bg-card flex flex-col">
+    <div className="fixed bottom-6 right-6 z-40 w-72 rounded-md border border-border bg-card flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Session Stats
         </span>
         <button
@@ -73,7 +73,7 @@ export const SessionStats = () => {
         </button>
       </div>
 
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-4">
         <StatRow label="Focus phases" value={focusCount} />
         <StatRow label="Short breaks" value={shortBreakCount} />
         <StatRow label="Long breaks" value={longBreakCount} />

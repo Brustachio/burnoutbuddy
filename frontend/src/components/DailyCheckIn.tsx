@@ -24,10 +24,10 @@ function SliderRow({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           {label}
         </span>
-        <span className="text-xs font-semibold text-foreground tabular-nums w-4 text-right">
+        <span className="text-sm font-semibold text-foreground tabular-nums w-5 text-right">
           {value}
         </span>
       </div>
@@ -105,7 +105,7 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="fixed bottom-[8.5rem] right-6 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        className="fixed right-6 top-1/2 -translate-y-1/2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
         aria-label="Open daily check-in"
       >
         <ClipboardCheck className="h-5 w-5" />
@@ -114,10 +114,10 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
   }
 
   return (
-    <div className="fixed bottom-[8.5rem] right-6 z-40 w-72 rounded-md border border-border bg-card flex flex-col">
+    <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40 w-72 rounded-md border border-border bg-card flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
-        <span className="text-xs text-muted-foreground">
+        <span className="text-sm text-muted-foreground">
           Daily Check-in
         </span>
         <button
@@ -131,7 +131,7 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
 
       <div className="px-4 pb-4 flex flex-col gap-4">
         {submitted ? (
-          <div className="flex flex-col items-center gap-3 py-4">
+          <div className="flex flex-col items-center gap-2 py-3">
             <span className="text-xs text-muted-foreground text-center">
               Logged. Keep going!
             </span>
@@ -144,7 +144,6 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
           </div>
         ) : (
           <>
-            {/* Sliders */}
             <SliderRow
               label="Productivity"
               value={productivity}
@@ -155,26 +154,19 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
               value={wellbeing}
               onChange={handleWellbeing}
             />
-
-            {/* Notes */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">
-                Notes
-              </span>
+              <span className="text-sm text-muted-foreground">Notes</span>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Quick reflection…"
-                rows={2}
-                className="w-full resize-none rounded-md bg-secondary border border-border px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring transition"
+                className="flex-1 min-h-[80px] w-full resize-none rounded-md bg-secondary border border-border px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-ring transition"
               />
             </div>
-
-            {/* Submit */}
             <Button
               onClick={handleSubmit}
               disabled={!touched}
-              className="w-full h-8 text-xs disabled:opacity-30"
+              className="w-full h-9 text-sm disabled:opacity-30"
             >
               Submit
             </Button>
