@@ -1,25 +1,38 @@
 import { useState, useEffect, useRef } from "react";
-import { Play, Pause, RotateCcw } from "lucide-react";
+import ReactDOM from "react-dom";
+import { Play, Pause, RotateCcw, SkipForward, SkipBack, PictureInPicture2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { TimerSettings } from "@/pages/Index";
 
 type Phase = "work" | "break" | "longBreak";
 
+function transferStylesToWindow(target: Window) {
+  document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+    target.document.head.appendChild(node.cloneNode(true));
+  });
+  const isDark = document.documentElement.classList.contains("dark");
+  target.document.documentElement.classList.toggle("dark", isDark);
+}
+
 interface Props {
   settings: TimerSettings;
 }
 
+function formatTime(totalSecs: number): string {
+  const hours = Math.floor(totalSecs / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (hours > 0) return `${hours}:${mm}:${ss}`;
+  return `${mm}:${ss}`;
+}
+
 export const PomodoroTimer = ({ settings }: Props) => {
-  const [phase, setPhase] = useState<Phase>("work");
+  const [phaseIndex, setPhaseIndex] = useState(0);
   const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
-  const alarmRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    alarmRef.current = new Audio("/alarm.mp3");
-    alarmRef.current.load();
-  }, []);
 
   const totalSeconds =
     phase === "work"
@@ -31,12 +44,16 @@ export const PomodoroTimer = ({ settings }: Props) => {
   useEffect(() => {
     setSecondsLeft(totalSeconds);
     setIsRunning(false);
-  }, [settings, phase]);
+  }, [settings]);
+
+  useEffect(() => {
+    setSecondsLeft(totalSeconds);
+    setIsRunning(false);
+  }, [phaseIndex]);
 
   useEffect(() => {
     if (!isRunning) return;
     if (secondsLeft <= 0) {
-      alarmRef.current?.play();
       if (phase === "work") {
         const next =
           (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
@@ -51,63 +68,105 @@ export const PomodoroTimer = ({ settings }: Props) => {
     }
     const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearInterval(id);
-  }, [isRunning, secondsLeft, phase, completedSessions, settings]);
+  }, [isRunning, secondsLeft, phase]);
 
   const reset = () => {
     setIsRunning(false);
-    setPhase("work");
-    setSecondsLeft(settings.workMinutes * 60);
+    setPhaseIndex(0);
     setCompletedSessions(0);
   };
 
+  const skip = () => {
+    if (phase === "work") setCompletedSessions((s) => s + 1);
+    setPhaseIndex((i) => (i + 1) % cycle.length);
+  };
 
-  const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const seconds = String(secondsLeft % 60).padStart(2, "0");
+  const previous = () => {
+    setPhaseIndex((i) => (i - 1 + cycle.length) % cycle.length);
+  };
+
   const progress = 1 - secondsLeft / totalSeconds;
 
   const phaseLabel =
-    phase === "work" ? "Focus" : phase === "break" ? "Break" : "Long Break";
+    phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
+
+  const togglePiP = async () => {
+    if (pipWindow) {
+      pipWindow.close();
+      return;
+    }
+    if (!window.documentPictureInPicture) return;
+    const pip = await window.documentPictureInPicture.requestWindow({ width: 300, height: 200 });
+    transferStylesToWindow(pip);
+    pip.addEventListener("pagehide", () => setPipWindow(null));
+    setPipWindow(pip);
+  };
+
+  useEffect(() => {
+    if (!pipWindow) return;
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      pipWindow.document.documentElement.classList.toggle("dark", isDark);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, [pipWindow]);
+
+  useEffect(() => {
+    return () => { pipWindow?.close(); };
+  }, [pipWindow]);
 
   useEffect(() => {
     document.title = isRunning
-      ? `${phaseLabel} ${minutes}:${seconds} — BurnoutBuddy`
+      ? `${phaseLabel} ${formatTime(secondsLeft)} — BurnoutBuddy`
       : "BurnoutBuddy";
     return () => {
       document.title = "BurnoutBuddy";
     };
-  }, [secondsLeft, isRunning, phaseLabel, minutes, seconds]);
+  }, [secondsLeft, isRunning, phaseLabel]);
       
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
-      {/* Phase label */}
-      <span className="mb-4 font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground">
-        {phaseLabel}
-      </span>
-
-      {/* Giant clock */}
-      <div className="relative mb-6">
-        <span
-          className="font-mono font-bold tracking-tight text-foreground select-none"
-          style={{ fontSize: "clamp(5rem, 15vw, 12rem)" }}
-        >
-          {minutes}:{seconds}
+      {/* Clock face — dimmed when PiP is active */}
+      <div className={pipWindow ? "opacity-30 transition-opacity" : "transition-opacity"}>
+        {/* Phase label */}
+        <span className="mb-4 block font-mono text-xs uppercase tracking-[0.4em] text-muted-foreground text-center">
+          {phaseLabel}
         </span>
-      </div>
 
-      {/* Session dots */}
-      <div className="mb-8 flex gap-2.5">
-        {Array.from({ length: settings.sessionsBeforeLongBreak }).map((_, i) => (
-          <div
-            key={i}
-            className={`h-2 w-2 rounded-full transition-colors ${
-              i < completedSessions ? "bg-foreground" : "bg-border"
-            }`}
-          />
-        ))}
+        {/* Giant clock */}
+        <div className="relative mb-6">
+          <span
+            className="font-mono font-bold tracking-tight text-foreground select-none"
+            style={{ fontSize: "clamp(5rem, 15vw, 12rem)" }}
+          >
+            {formatTime(secondsLeft)}
+          </span>
+        </div>
+
+        {/* Session dots */}
+        <div className="mb-8 flex justify-center gap-2.5">
+          {Array.from({ length: settings.sessionsBeforeLongBreak }).map((_, i) => (
+            <div
+              key={i}
+              className={`h-2 w-2 rounded-full transition-colors ${
+                i < completedSessions ? "bg-foreground" : "bg-border"
+              }`}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Controls */}
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={previous}
+          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+        >
+          <SkipBack className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -126,6 +185,25 @@ export const PomodoroTimer = ({ settings }: Props) => {
             <Play className="h-4 w-4" />
           )}
         </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={skip}
+          className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+        >
+          <SkipForward className="h-4 w-4" />
+        </Button>
+        {isPiPSupported && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => { togglePiP().catch(console.error); }}
+            className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
+            aria-label={pipWindow ? "Exit mini-player" : "Open mini-player"}
+          >
+            <PictureInPicture2 className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Subtle progress bar at very bottom */}
@@ -135,6 +213,19 @@ export const PomodoroTimer = ({ settings }: Props) => {
           style={{ width: `${progress * 100}%` }}
         />
       </div>
+
+      {/* PiP portal — renders timer centered in the floating window */}
+      {pipWindow && ReactDOM.createPortal(
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100vw", height: "100vh", backgroundColor: "var(--background)" }}>
+          <span
+            className="font-mono font-bold tracking-tight text-foreground select-none"
+            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)" }}
+          >
+            {formatTime(secondsLeft)}
+          </span>
+        </div>,
+        pipWindow.document.body
+      )}
     </div>
   );
 };
