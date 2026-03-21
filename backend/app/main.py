@@ -7,6 +7,7 @@ from app.utils.logger import setup_logger
 # from app.routes.auth import router as auth_router
 from app.db.database import init_db, engine
 from app.config import get_settings
+from app.routes.api import router as api_router
 
 settings = get_settings()
 logger = setup_logger(__name__)
@@ -50,6 +51,7 @@ app.add_middleware(
 )
 
 # # Include routers
+app.include_router(api_router, prefix="/api")
 # app.include_router(health_router, prefix="/api")
 # app.include_router(auth_router, prefix="/api")
 
