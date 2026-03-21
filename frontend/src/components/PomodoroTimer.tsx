@@ -4,7 +4,7 @@ import { Play, Pause, RotateCcw, SkipForward, SkipBack, PictureInPicture2 } from
 import { Button } from "@/components/ui/Button";
 import type { TimerSettings } from "@/pages/Index";
 
-type Phase = "work" | "break" | "longBreak";
+type phase = "work" | "break" | "longBreak";
 
 function transferStylesToWindow(target: Window) {
   document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
@@ -33,6 +33,25 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const [pipWindow, setPipWindow] = useState<Window | null>(null);
+
+  const isPiPSupported = typeof window !== "undefined" && !!window.documentPictureInPicture;
+
+  const cycle: phase[] = (() => {
+    const c: phase[] = [];
+    for (let i = 0; i < settings.sessionsBeforeLongBreak; i++) {
+      c.push("work");
+      c.push(i === settings.sessionsBeforeLongBreak - 1 ? "longBreak" : "break");
+    }
+    return c;
+  })();
+
+  const phase: phase = cycle[phaseIndex % cycle.length] ?? "work";
+
+  const setPhase = (p: phase) => {
+    const idx = cycle.indexOf(p);
+    if (idx !== -1) setPhaseIndex(idx);
+  };
 
   const totalSeconds =
     phase === "work"
