@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react'
 import RootLayout from '../layouts/RootLayout'
 
 const Index = lazy(() => import('../pages/Index'))
+const Calendar = lazy(() => import('../pages/Calendar'))
 
 function PageLoader() {
   return (
@@ -22,6 +23,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <Index />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'calendar',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Calendar />
           </Suspense>
         ),
       },
