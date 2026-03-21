@@ -45,12 +45,16 @@ async def get_google_calendar_events(
         raise HTTPException(status_code=401, detail="Missing Google access token.")
 
     async with httpx.AsyncClient() as client:
-        now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now_utc = datetime.now(timezone.utc)
+        seven_days_utc = now_utc + timedelta(days=7)
+        now_str = now_utc.isoformat().replace("+00:00", "Z")
+        max_str = seven_days_utc.isoformat().replace("+00:00", "Z")
         response = await client.get(
             "https://www.googleapis.com/calendar/v3/calendars/primary/events",
             headers={"Authorization": f"Bearer {x_google_access_token}"},
             params={
                 "timeMin": now_str,
+                "timeMax": max_str,
                 "maxResults": 50,
                 "singleEvents": True,
                 "orderBy": "startTime",
