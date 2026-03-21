@@ -121,6 +121,9 @@ export default function CalendarPage() {
       setIsGoogleLinked(!!session)
       if (session) {
         setHasTriedGoogleLogin(true)
+        if (session.provider_token) {
+          localStorage.setItem('google_provider_token', session.provider_token)
+        }
       }
     })
 
@@ -184,7 +187,7 @@ export default function CalendarPage() {
       } = await supabase.auth.getSession()
 
       const supabaseToken = session?.access_token || ''
-      const googleToken = session?.provider_token || ''
+      const googleToken = session?.provider_token || localStorage.getItem('google_provider_token') || ''
       const headers: Record<string, string> = {}
       const bearerToken = supabaseToken
 

@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 import httpx
 
 from app.db.database import get_db
-from app.models.models import DailyCheckin, PomodoroSession, Event, Task
+from app.models.models import DailyCheckin, PomodoroSession, Event, Task, User
 from app.schemas.schemas import (
     DailyCheckinCreate,
     DailyCheckinResponse,
@@ -16,9 +16,74 @@ from app.schemas.schemas import (
     RiskScoreResponse,
     AIPlanResponse,
     CalendarEventsResponse,
+    UserResponse,
 )
 
 router = APIRouter()
+
+
+async def get_google_identity(
+    x_google_access_token: str = Header(None, alias="X-Google-Access-Token"),
+) -> dict:
+    if not x_google_access_token:
+        raise HTTPException(status_code=401, detail="Missing Google access token.")
+
+    async with httpx.AsyncClient() as client:
+        profile_resp = await client.get(
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+            headers={"Authorization": f"Bearer {x_google_access_token}"},
+        )
+
+    if profile_resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid Google access token.")
+
+    profile = profile_resp.json()
+    user_id = profile.get("sub")
+    email = profile.get("email")
+
+    if not user_id or not email:
+        raise HTTPException(status_code=400, detail="Google profile missing required fields.")
+
+    return {
+        "id": user_id,
+        "email": email,
+        "full_name": profile.get("name"),
+    }
+
+
+async def upsert_user_from_google_identity(db: AsyncSession, identity: dict) -> User:
+    user = await db.get(User, identity["id"])
+
+    if user is None:
+        user = User(
+            id=identity["id"],
+            email=identity["email"],
+            full_name=identity.get("full_name"),
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        return user
+
+    user.email = identity["email"]
+    user.full_name = identity.get("full_name")
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def get_current_user(
+    identity: dict = Depends(get_google_identity),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    return await upsert_user_from_google_identity(db, identity)
+
+
+@router.post("/auth/google/login", response_model=UserResponse)
+async def login_with_google(
+    user: User = Depends(get_current_user),
+):
+    return user
 
 
 def parse_google_event(raw: dict) -> dict:
@@ -38,12 +103,9 @@ def parse_google_event(raw: dict) -> dict:
 @router.get("/calendar/google/events", response_model=CalendarEventsResponse)
 async def get_google_calendar_events(
     x_google_access_token: str = Header(None, alias="X-Google-Access-Token"),
-    user_id: str = "test-user-id",
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not x_google_access_token:
-        raise HTTPException(status_code=401, detail="Missing Google access token.")
-
     async with httpx.AsyncClient() as client:
         cal_list_resp = await client.get(
             "https://www.googleapis.com/calendar/v3/users/me/calendarList",
@@ -88,7 +150,7 @@ async def get_google_calendar_events(
 
     now_dt = datetime.now()
     delete_stmt = delete(Event).where(
-        and_(Event.user_id == user_id, Event.source == "google", Event.start_time >= now_dt)
+        and_(Event.user_id == user.id, Event.source == "google", Event.start_time >= now_dt)
     )
     await db.execute(delete_stmt)
 
@@ -97,7 +159,7 @@ async def get_google_calendar_events(
             start_dt = datetime.fromisoformat(e["start"].replace("Z", "+00:00")).replace(tzinfo=None)
             end_dt = datetime.fromisoformat(e["end"].replace("Z", "+00:00")).replace(tzinfo=None)
             db_event = Event(
-                user_id=user_id,
+                user_id=user.id,
                 title=e["title"],
                 start_time=start_dt,
                 end_time=end_dt,
@@ -128,14 +190,14 @@ class TaskList(BaseModel):
 
 @router.post("/ai/plan-week", response_model=AIPlanResponse)
 async def generate_ai_plan(
-    user_id: str = "test-user-id",
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now()
     seven_days_ahead = now + timedelta(days=7)
     events_stmt = select(Event).where(
         and_(
-            Event.user_id == user_id,
+            Event.user_id == user.id,
             Event.start_time >= now,
             Event.start_time <= seven_days_ahead,
         )
@@ -173,7 +235,7 @@ async def generate_ai_plan(
     if hasattr(result, "tasks") and result.tasks:
         for t in result.tasks:
             db_task = Task(
-                user_id=user_id,
+                user_id=user.id,
                 title=t.title,
                 course=t.course,
                 due_date=t.due_date,
@@ -195,12 +257,12 @@ async def generate_ai_plan(
 @router.post("/checkins", response_model=DailyCheckinResponse)
 async def create_checkin(
     checkin: DailyCheckinCreate,
-    user_id: str = "test-user-id",
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     db_checkin = DailyCheckin(
         **checkin.model_dump(),
-        user_id=user_id,
+        user_id=user.id,
         date=datetime.now(),
     )
     db.add(db_checkin)
@@ -213,12 +275,12 @@ async def create_checkin(
 @router.post("/sessions", response_model=PomodoroSessionResponse)
 async def create_session(
     session: PomodoroSessionCreate,
-    user_id: str = "test-user-id",
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     db_session = PomodoroSession(
         **session.model_dump(),
-        user_id=user_id,
+        user_id=user.id,
     )
     db.add(db_session)
     await db.commit()
@@ -229,13 +291,13 @@ async def create_session(
 # GET /risk-score endpoint
 @router.get("/risk-score", response_model=RiskScoreResponse)
 async def get_risk_score(
-    user_id: str = "test-user-id",
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     three_days_ago = datetime.now() - timedelta(days=3)
 
     checkins_stmt = select(DailyCheckin).where(
-        and_(DailyCheckin.user_id == user_id, DailyCheckin.date >= three_days_ago)
+        and_(DailyCheckin.user_id == user.id, DailyCheckin.date >= three_days_ago)
     )
     checkins_result = await db.execute(checkins_stmt)
     recent_checkins = checkins_result.scalars().all()
@@ -243,7 +305,7 @@ async def get_risk_score(
     seven_days_ahead = datetime.now() + timedelta(days=7)
     events_stmt = select(Event).where(
         and_(
-            Event.user_id == user_id,
+            Event.user_id == user.id,
             Event.start_time >= datetime.now(),
             Event.start_time <= seven_days_ahead,
         )
