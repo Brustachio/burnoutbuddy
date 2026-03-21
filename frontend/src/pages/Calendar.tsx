@@ -50,6 +50,14 @@ function formatDateTime(raw?: string): string {
   })
 }
 
+function eventStart(rawEvent: CalendarEvent): Date | null {
+  const raw = rawEvent.start || rawEvent.start_time
+  if (!raw) return null
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
 export default function CalendarPage() {
   const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
@@ -62,6 +70,44 @@ export default function CalendarPage() {
     if (events.length > 0) return events
     return mockEvents
   }, [events])
+
+  const weekDays = useMemo(() => {
+    const days: Date[] = []
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+
+    for (let i = 0; i < 7; i += 1) {
+      const day = new Date(start)
+      day.setDate(start.getDate() + i)
+      days.push(day)
+    }
+
+    return days
+  }, [])
+
+  const weekEventsByDay = useMemo(() => {
+    const grouped: Record<string, Array<{ event: CalendarEvent; start: Date }>> = {}
+
+    weekDays.forEach((day) => {
+      grouped[day.toDateString()] = []
+    })
+
+    mergedEvents.forEach((event) => {
+      const start = eventStart(event)
+      if (!start) return
+
+      const dayKey = new Date(start.getFullYear(), start.getMonth(), start.getDate()).toDateString()
+      if (grouped[dayKey]) {
+        grouped[dayKey].push({ event, start })
+      }
+    })
+
+    Object.keys(grouped).forEach((key) => {
+      grouped[key].sort((a, b) => a.start.getTime() - b.start.getTime())
+    })
+
+    return grouped
+  }, [mergedEvents, weekDays])
 
   useEffect(() => {
     if (!supabase) {
@@ -256,30 +302,49 @@ export default function CalendarPage() {
         )}
 
         <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-4 font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            Upcoming Assignments & Events
-          </h2>
-          <div className="space-y-2">
-            {mergedEvents.map((event: CalendarEvent, idx: number) => (
-              <div
-                key={event.id || `${event.title || event.summary || 'event'}-${idx}`}
-                className="flex items-center justify-between gap-3 rounded-md border border-border/70 bg-secondary/25 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-sm">{event.title || event.summary || 'Untitled event'}</p>
-                  <p className="text-xs text-muted-foreground">{formatDateTime(event.start || event.start_time)}</p>
-                </div>
-                <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {event.source || 'calendar'}
-                </span>
-              </div>
-            ))}
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              1 Week Calendar
+            </h2>
+            <p className="text-xs text-muted-foreground">Showing next 7 days starting today</p>
           </div>
-          {events.length === 0 && (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Showing sample events until your first sync succeeds.
-            </p>
-          )}
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {weekDays.map((day) => {
+              const key = day.toDateString()
+              const items = weekEventsByDay[key] || []
+
+              return (
+                <div key={key} className="rounded-md border border-border/70 bg-secondary/20 p-3">
+                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    {day.toLocaleDateString(undefined, {
+                      weekday: 'short',
+                      month: 'numeric',
+                      day: 'numeric',
+                    })}
+                  </p>
+
+                  <div className="mt-2 space-y-2">
+                    {items.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No events</p>
+                    ) : (
+                      items.map(({ event, start }, idx) => (
+                        <div
+                          key={event.id || `${event.title || event.summary || 'event'}-${idx}`}
+                          className="rounded border border-border/60 bg-background px-2 py-1.5"
+                        >
+                          <p className="truncate text-sm font-medium">
+                            {event.title || event.summary || 'Untitled event'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{formatDateTime(start.toISOString())}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </section>
       </div>
     </div>
