@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useAuth } from '@/context/AuthContext'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -52,8 +52,11 @@ function formatDateTime(raw?: string): string {
 }
 
 export default function CalendarPage() {
-  const [googleToken, setGoogleToken] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const { isAuthenticated, login, logout } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -64,17 +67,27 @@ export default function CalendarPage() {
     return mockEvents
   }, [events])
 
-  const onGoogleTokenChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setGoogleToken(e.target.value)
-  }
+  const handleAppLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setAuthError(null)
+    setIsAuthLoading(true)
 
-  const onIcsFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] || null)
+    const result = await login({ email, password })
+    if (!result.success) {
+      setAuthError(result.error || 'Account login failed.')
+    }
+
+    setIsAuthLoading(false)
   }
 
   const connectGoogle = () => {
-    // Backend can redirect this route to Supabase-hosted OAuth for calendar scope.
-    window.location.href = `${API_URL}/api/calendar/google/connect`
+    if (!isAuthenticated) {
+      setError('Sign in to your BurnoutBuddy account before linking Google Calendar.')
+      return
+    }
+
+    const returnTo = encodeURIComponent(window.location.href)
+    window.location.href = `${API_URL}/api/calendar/google/connect?return_to=${returnTo}`
   }
 
   const parseApiResponse = async (response: Response): Promise<CalendarApiResponse> => {
@@ -85,9 +98,9 @@ export default function CalendarPage() {
     }
   }
 
-  const syncFromGoogleToken = async () => {
-    if (!googleToken.trim()) {
-      setError('Paste a Google access token first.')
+  const syncFromGoogle = async () => {
+    if (!isAuthenticated) {
+      setError('Sign in to your BurnoutBuddy account first.')
       return
     }
 
@@ -97,12 +110,10 @@ export default function CalendarPage() {
 
     try {
       const response = await fetch(`${API_URL}/api/calendar/google/events`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
         },
-        body: JSON.stringify({ access_token: googleToken.trim() }),
       })
 
       const data = await parseApiResponse(response)
@@ -120,43 +131,6 @@ export default function CalendarPage() {
     }
   }
 
-  const uploadIcs = async () => {
-    if (!file) {
-      setError('Choose an .ics or .ical file first.')
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    setStatus(null)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-
-      const response = await fetch(`${API_URL}/api/calendar/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-        },
-        body: formData,
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Failed to upload calendar file.')
-      }
-
-      const incoming = Array.isArray(data.events) ? data.events : []
-      setEvents(incoming)
-      setStatus(`Imported ${incoming.length} events from calendar file.`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Calendar upload failed.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground px-4 py-8 sm:px-8">
       <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -164,7 +138,7 @@ export default function CalendarPage() {
           <div>
             <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Connect Google or import .ics, then review upcoming assignments and events.
+              Use separate logins: first your BurnoutBuddy account, then Google Calendar linking.
             </p>
           </div>
           <Button
@@ -183,12 +157,63 @@ export default function CalendarPage() {
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Account Linking
+                BurnoutBuddy Account
+              </h2>
+            </div>
+
+            {isAuthenticated ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">You are signed in to your app account.</p>
+                <Button
+                  variant="outline"
+                  onClick={logout}
+                  className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                >
+                  Log Out
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleAppLogin} className="space-y-3">
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email"
+                  className="font-mono text-xs"
+                  required
+                />
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="font-mono text-xs"
+                  required
+                />
+                {authError && <p className="text-xs text-destructive">{authError}</p>}
+                <Button
+                  type="submit"
+                  disabled={isAuthLoading}
+                  className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                >
+                  {isAuthLoading ? 'Signing In...' : 'Sign In To App'}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Need an account? Use Settings -&gt; Account on the timer screen.
+                </p>
+              </form>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                Google Calendar Account
               </h2>
             </div>
 
             <p className="mb-4 text-sm text-muted-foreground">
-              Use the OAuth button for full flow, or paste a token if your team already has Supabase OAuth wired.
+              This uses a separate Google OAuth flow. No .ics upload is needed.
             </p>
 
             <div className="space-y-3">
@@ -199,50 +224,13 @@ export default function CalendarPage() {
                 Connect Google Calendar
               </Button>
 
-              <Input
-                value={googleToken}
-                onChange={onGoogleTokenChange}
-                placeholder="Paste Google access token"
-                className="font-mono text-xs"
-              />
-
               <Button
                 variant="outline"
-                onClick={syncFromGoogleToken}
+                onClick={syncFromGoogle}
                 disabled={isLoading}
                 className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
               >
-                Sync Events
-              </Button>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Canvas / iCal Import
-              </h2>
-            </div>
-
-            <p className="mb-4 text-sm text-muted-foreground">
-              Export your calendar from Canvas or Google and upload the .ics/.ical file.
-            </p>
-
-            <div className="space-y-3">
-              <Input
-                type="file"
-                accept=".ics,.ical,text/calendar"
-                onChange={onIcsFileChange}
-                className="font-mono text-xs"
-              />
-
-              <Button
-                variant="outline"
-                onClick={uploadIcs}
-                disabled={isLoading}
-                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-              >
-                Upload Calendar File
+                {isLoading ? 'Fetching Events...' : 'Fetch Linked Events'}
               </Button>
             </div>
           </section>
