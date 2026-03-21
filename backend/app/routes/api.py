@@ -1,6 +1,6 @@
 from sqlalchemy import delete, select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-from langchain_google_genai import ChatGoogleGenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Header
 from datetime import datetime, timezone, timedelta
@@ -131,7 +131,7 @@ async def generate_ai_plan(
         [f"- {e.title} (Starts: {e.start_time}, Ends: {e.end_time})" for e in upcoming_events]
     )
 
-    llm = ChatGoogleGenAI(model="gemini-2.5-flash", temperature=0.2)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
     llm_with_structured_output = llm.with_structured_output(TaskList)
 
     prompt = f"""
