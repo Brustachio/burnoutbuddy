@@ -286,7 +286,9 @@ export default function CalendarPage() {
           <div>
             <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with Google to load your calendar directly.
+              {isGoogleLinked
+                ? 'Your Google calendar syncs automatically when you open this page.'
+                : 'Sign in with Google to load your calendar directly.'}
             </p>
           </div>
           <Button
@@ -303,11 +305,13 @@ export default function CalendarPage() {
         <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <div className="mb-4 space-y-1">
             <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Login Page
+              {isGoogleLinked ? 'Calendar Sync' : 'Login Page'}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Start here first. Sign in with Google, then click Update Calendar to load your events.
-            </p>
+            {!isGoogleLinked && (
+              <p className="text-sm text-muted-foreground">
+                Start here first. Sign in with Google to load your events.
+              </p>
+            )}
           </div>
 
           {!hasSupabaseConfig && (
@@ -327,29 +331,20 @@ export default function CalendarPage() {
               </Button>
             )}
 
-            {isGoogleLinked && (
-              <p className="text-xs text-muted-foreground">
-                Calendar updates automatically after login.
-              </p>
-            )}
-
             {isLoading && (
               <p className="text-xs text-muted-foreground">Updating calendar from Google...</p>
             )}
 
             <p className="text-xs text-muted-foreground">
-              Google status: {isGoogleLinked ? 'Linked' : 'Not linked'}
+              Google Calendar Status: {isGoogleLinked ? 'Linked' : 'Unlinked'}
             </p>
 
-            {hasTriedGoogleLogin && (
+            {!isGoogleLinked && hasTriedGoogleLogin && (
               <p className="text-xs text-muted-foreground">
                 If you just completed Google login, your calendar updates automatically.
               </p>
             )}
 
-            <p className="text-xs text-muted-foreground">
-              OAuth redirect target: {OAUTH_REDIRECT_TO}
-            </p>
           </div>
         </section>
 
@@ -412,7 +407,9 @@ export default function CalendarPage() {
 
           {events.length === 0 && (
             <p className="mt-4 text-xs text-muted-foreground">
-              No Google events loaded yet. Sign in with Google and wait a moment for automatic sync.
+              {isGoogleLinked
+                ? 'No Google events found for the next 7 days.'
+                : 'No Google events loaded yet. Sign in with Google and wait a moment for automatic sync.'}
             </p>
           )}
 
