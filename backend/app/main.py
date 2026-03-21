@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.utils.logger import setup_logger
-from app.routes.health import router as health_router
-from app.routes.auth import router as auth_router
+# from app.routes.health import router as health_router
+# from app.routes.auth import router as auth_router
 from app.db.database import init_db, engine
 from app.config import get_settings
 
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting application")
     try:
-        await init_db()
+        # await init_db()
         logger.info("Application started successfully")
         yield
     except Exception as e:
@@ -49,8 +49,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(health_router, prefix="/api")
-app.include_router(auth_router, prefix="/api")
+# # Include routers
+# app.include_router(health_router, prefix="/api")
+# app.include_router(auth_router, prefix="/api")
 
 logger.info("Application routes configured")

@@ -3,6 +3,8 @@ from alembic import context
 from logging.config import fileConfig
 from app.db import Base, get_database_url, create_engine_with_retry
 
+import app.models.models
+
 # Load Alembic configuration and set up logging
 config = context.config
 fileConfig(config.config_file_name)
