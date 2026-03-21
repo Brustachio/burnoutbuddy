@@ -35,6 +35,13 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
 
+  const alarmRef = useRef<HTMLAudioElement>(null);
+
+   useEffect(() => {
+    alarmRef.current = new Audio("alarm.mp3");
+    alarmRef.current.load();
+  }, []);
+
   const isPiPSupported = typeof window !== "undefined" && !!window.documentPictureInPicture;
 
   const cycle: phase[] = (() => {
@@ -73,6 +80,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
   useEffect(() => {
     if (!isRunning) return;
     if (secondsLeft <= 0) {
+      alarmRef.current?.play();
       if (phase === "work") {
         const next =
           (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
