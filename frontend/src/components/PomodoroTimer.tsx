@@ -53,6 +53,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
     setCompletedSessions(0);
   };
 
+
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
   const seconds = String(secondsLeft % 60).padStart(2, "0");
   const progress = 1 - secondsLeft / totalSeconds;
@@ -60,6 +61,15 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const phaseLabel =
     phase === "work" ? "Focus" : phase === "break" ? "Break" : "Long Break";
 
+  useEffect(() => {
+    document.title = isRunning
+      ? `${phaseLabel} ${minutes}:${seconds} — BurnoutBuddy`
+      : "BurnoutBuddy";
+    return () => {
+      document.title = "BurnoutBuddy";
+    };
+  }, [secondsLeft, isRunning, phaseLabel, minutes, seconds]);
+      
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       {/* Phase label */}
