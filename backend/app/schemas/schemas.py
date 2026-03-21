@@ -12,7 +12,6 @@ class UserCreate(UserBase):
 
 class UserResponse(UserBase):
     id: str
-
     class Config:
         from_attributes = True
 
@@ -28,12 +27,27 @@ class DailyCheckinResponse(DailyCheckinCreate):
     id: int
     user_id: str
     date: datetime
+    class Config:
+        from_attributes = True
 
+# --- TASKS ---
+class TaskCreate(BaseModel):
+    title: str
+    course: Optional[str] = None
+    due_date: Optional[datetime] = None
+    priority: str
+    estimated_pomodoros: int
+
+class TaskResponse(TaskCreate):
+    id: int
+    user_id: str
+    is_completed: int
     class Config:
         from_attributes = True
 
 # --- POMODORO SESSIONS ---
 class PomodoroSessionCreate(BaseModel):
+    task_id: Optional[int] = None  # Added task_id foreign key
     start_time: datetime
     end_time: datetime
     session_type: str  # e.g., 'focus' or 'break'
@@ -42,6 +56,14 @@ class PomodoroSessionCreate(BaseModel):
 class PomodoroSessionResponse(PomodoroSessionCreate):
     id: int
     user_id: str
-
     class Config:
         from_attributes = True
+
+# --- RISK & AI ---
+class RiskScoreResponse(BaseModel):
+    risk_level: str  # "Low", "Med", "High"
+    details: str
+
+class AIPlanResponse(BaseModel):
+    message: str
+    tasks_generated: int
