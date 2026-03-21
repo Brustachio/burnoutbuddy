@@ -45,23 +45,46 @@ async def get_google_calendar_events(
         raise HTTPException(status_code=401, detail="Missing Google access token.")
 
     async with httpx.AsyncClient() as client:
-        now_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        response = await client.get(
-            "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+        cal_list_resp = await client.get(
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
             headers={"Authorization": f"Bearer {x_google_access_token}"},
-            params={
-                "timeMin": now_str,
-                "maxResults": 50,
-                "singleEvents": True,
-                "orderBy": "startTime",
-            },
         )
+        if cal_list_resp.status_code != 200:
+            raise HTTPException(status_code=cal_list_resp.status_code, detail="Failed to list calendars.")
 
-    if response.status_code != 200:
-        raise HTTPException(status_code=response.status_code, detail="Google Calendar API error.")
+        calendar_ids = [c["id"] for c in cal_list_resp.json().get("items", [])]
+        if not calendar_ids:
+            calendar_ids = ["primary"]
 
-    raw_events = response.json().get("items", [])
-    events = [parse_google_event(e) for e in raw_events]
+        now_utc = datetime.now(timezone.utc)
+        seven_days_utc = now_utc + timedelta(days=7)
+        now_str = now_utc.isoformat().replace("+00:00", "Z")
+        max_str = seven_days_utc.isoformat().replace("+00:00", "Z")
+
+        raw_all: list[dict] = []
+        for cal_id in calendar_ids:
+            resp = await client.get(
+                f"https://www.googleapis.com/calendar/v3/calendars/{cal_id}/events",
+                headers={"Authorization": f"Bearer {x_google_access_token}"},
+                params={
+                    "timeMin": now_str,
+                    "timeMax": max_str,
+                    "maxResults": 50,
+                    "singleEvents": True,
+                    "orderBy": "startTime",
+                },
+            )
+            if resp.status_code == 200:
+                raw_all.extend(resp.json().get("items", []))
+
+    seen: set[tuple] = set()
+    events: list[dict] = []
+    for raw in raw_all:
+        parsed = parse_google_event(raw)
+        key = (parsed["id"], parsed["start"])
+        if key not in seen:
+            seen.add(key)
+            events.append(parsed)
 
     now_dt = datetime.now()
     delete_stmt = delete(Event).where(
