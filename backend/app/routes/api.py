@@ -1,4 +1,5 @@
 from sqlalchemy import delete, select, and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
@@ -6,6 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from datetime import datetime, timezone, timedelta
 import asyncio
 import httpx
+
+from app.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 from app.db.database import get_db
 from app.models.models import DailyCheckin, PomodoroSession, Event, Task, User
@@ -160,27 +165,34 @@ async def get_google_calendar_events(
                 seen.add(key)
                 events.append(parsed)
 
-        now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
-        delete_stmt = delete(Event).where(
-            and_(Event.user_id == user.id, Event.source == "google", Event.start_time >= now_utc_naive)
-        )
-        await db.execute(delete_stmt)
-
         for e in events:
             try:
                 start_dt = datetime.fromisoformat(e["start"].replace("Z", "+00:00")).replace(tzinfo=None)
                 end_dt = datetime.fromisoformat(e["end"].replace("Z", "+00:00")).replace(tzinfo=None)
-                db_event = Event(
+                
+                # Upsert: insert if new, update if exists (identified by user_id + google_event_id + source)
+                stmt = pg_insert(Event).values(
                     user_id=user.id,
+                    google_event_id=e["id"],
                     title=e["title"],
                     start_time=start_dt,
                     end_time=end_dt,
                     source="google",
                     workload_weight=3,
                     course=e.get("description", "")[:50] if e.get("description") else "",
+                ).on_conflict_do_update(
+                    index_elements=['user_id', 'google_event_id', 'source'],
+                    set_=dict(
+                        title=e["title"],
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        workload_weight=3,
+                        course=e.get("description", "")[:50] if e.get("description") else "",
+                    )
                 )
-                db.add(db_event)
-            except Exception:
+                await db.execute(stmt)
+            except Exception as ex:
+                logger.error(f"Error upserting event {e.get('id')}: {str(ex)}")
                 continue
 
         await db.commit()
