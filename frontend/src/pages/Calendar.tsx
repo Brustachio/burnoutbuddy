@@ -22,21 +22,6 @@ type CalendarApiResponse = {
   message?: string
 }
 
-const mockEvents: CalendarEvent[] = [
-  {
-    id: 'm1',
-    title: 'CS Midterm Review',
-    start: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    source: 'mock',
-  },
-  {
-    id: 'm2',
-    title: 'HCI Milestone Due',
-    start: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-    source: 'mock',
-  },
-]
-
 function formatDateTime(raw?: string): string {
   if (!raw) return 'Unknown time'
   const parsed = new Date(raw)
@@ -66,11 +51,6 @@ export default function CalendarPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
-  const mergedEvents = useMemo(() => {
-    if (events.length > 0) return events
-    return mockEvents
-  }, [events])
-
   const weekDays = useMemo(() => {
     const days: Date[] = []
     const start = new Date()
@@ -92,7 +72,7 @@ export default function CalendarPage() {
       grouped[day.toDateString()] = []
     })
 
-    mergedEvents.forEach((event) => {
+    events.forEach((event) => {
       const start = eventStart(event)
       if (!start) return
 
@@ -107,7 +87,7 @@ export default function CalendarPage() {
     })
 
     return grouped
-  }, [mergedEvents, weekDays])
+  }, [events, weekDays])
 
   useEffect(() => {
     if (!supabase) {
@@ -158,7 +138,14 @@ export default function CalendarPage() {
     })
 
     if (error) {
-      setError(error.message)
+      const rawMessage = error.message || ''
+      if (rawMessage.includes('Unsupported provider') || rawMessage.includes('provider is not enabled')) {
+        setError(
+          'Supabase Google provider is not enabled. In Supabase Dashboard go to Authentication -> Providers -> Google, enable it, and add OAuth client ID/secret.'
+        )
+      } else {
+        setError(rawMessage)
+      }
     }
   }
 
@@ -345,6 +332,12 @@ export default function CalendarPage() {
               )
             })}
           </div>
+
+          {events.length === 0 && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              No Google events loaded yet. Sign in with Google and click Update Calendar.
+            </p>
+          )}
         </section>
       </div>
     </div>
