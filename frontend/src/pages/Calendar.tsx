@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -58,7 +59,8 @@ export default function CalendarPage() {
   const [username, setUsername] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [accountMode, setAccountMode] = useState<'login' | 'register'>('login')
-  const [showUpdatePrompt, setShowUpdatePrompt] = useState(false)
+  const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
   const [isAuthLoading, setIsAuthLoading] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -70,6 +72,31 @@ export default function CalendarPage() {
     if (events.length > 0) return events
     return mockEvents
   }, [events])
+
+  useEffect(() => {
+    const initializeGoogleSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      setIsGoogleLinked(!!session)
+      if (session) {
+        setHasTriedGoogleLogin(true)
+      }
+    }
+
+    initializeGoogleSession()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsGoogleLinked(!!session)
+      if (session) {
+        setHasTriedGoogleLogin(true)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleAppLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -109,9 +136,21 @@ export default function CalendarPage() {
     setIsAuthLoading(false)
   }
 
-  const connectGoogle = () => {
-    const returnTo = encodeURIComponent(window.location.href)
-    window.location.href = `${API_URL}/api/calendar/google/connect?return_to=${returnTo}`
+  const connectGoogle = async () => {
+    const redirectTo = `${window.location.origin}/calendar`
+    setHasTriedGoogleLogin(true)
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
+      },
+    })
+
+    if (error) {
+      setError(error.message)
+    }
   }
 
   const parseApiResponse = async (response: Response): Promise<CalendarApiResponse> => {
@@ -123,9 +162,8 @@ export default function CalendarPage() {
   }
 
   const syncFromGoogle = async () => {
-    if (!isAuthenticated) {
-      setShowUpdatePrompt(true)
-      setError('Before updating calendar, choose Google sign-in or app login/create account.')
+    if (!isGoogleLinked) {
+      setError('Use Login with Google first to link your calendar account.')
       return
     }
 
@@ -134,11 +172,25 @@ export default function CalendarPage() {
     setStatus(null)
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const supabaseToken = session?.access_token || ''
+      const appToken = localStorage.getItem('token') || ''
+      const headers: Record<string, string> = {}
+      const bearerToken = appToken || supabaseToken
+
+      if (bearerToken) {
+        headers.Authorization = `Bearer ${bearerToken}`
+      }
+      if (supabaseToken) {
+        headers['X-Supabase-Access-Token'] = supabaseToken
+      }
+
       const response = await fetch(`${API_URL}/api/calendar/google/events`, {
         method: 'GET',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-        },
+        headers,
       })
 
       const data = await parseApiResponse(response)
@@ -149,7 +201,6 @@ export default function CalendarPage() {
       const incoming = Array.isArray(data.events) ? data.events : []
       setEvents(incoming)
       setStatus(`Synced ${incoming.length} events from Google Calendar.`)
-      setShowUpdatePrompt(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sync failed.')
     } finally {
@@ -164,7 +215,7 @@ export default function CalendarPage() {
           <div>
             <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Use separate logins: first your BurnoutBuddy account, then Google Calendar linking.
+              Sign in with Google to load your calendar directly.
             </p>
           </div>
           <Button
@@ -179,13 +230,56 @@ export default function CalendarPage() {
           </Button>
         </div>
 
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="mb-4 space-y-1">
+            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
+              Login
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Start with Supabase Google OAuth, then click Update Calendar to load your events.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              onClick={connectGoogle}
+              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+            >
+              Login With Google (Supabase)
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={syncFromGoogle}
+              disabled={isLoading}
+              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+            >
+              {isLoading ? 'Updating...' : 'Update Calendar'}
+            </Button>
+
+            <p className="text-xs text-muted-foreground">
+              Google status: {isGoogleLinked ? 'Linked' : 'Not linked'}
+            </p>
+
+            {hasTriedGoogleLogin && (
+              <p className="text-xs text-muted-foreground">
+                If you just completed Google login, click Update Calendar to load events.
+              </p>
+            )}
+          </div>
+        </section>
+
         <div className="grid gap-4 lg:grid-cols-2">
           <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                BurnoutBuddy Account
+                App Account (Optional)
               </h2>
             </div>
+
+            <p className="mb-4 text-sm text-muted-foreground">
+              Use this if your backend requires app auth with JWT before calendar fetch.
+            </p>
 
             {isAuthenticated ? (
               <div className="space-y-3">
@@ -298,60 +392,6 @@ export default function CalendarPage() {
                 )}
               </div>
             )}
-          </section>
-
-          <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Google Calendar Account
-              </h2>
-            </div>
-
-            <p className="mb-4 text-sm text-muted-foreground">
-              This uses a separate Google OAuth flow. No .ics upload is needed.
-            </p>
-
-            <div className="space-y-3">
-              <Button
-                onClick={connectGoogle}
-                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-              >
-                Connect Google Calendar
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={syncFromGoogle}
-                disabled={isLoading}
-                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-              >
-                {isLoading ? 'Updating...' : 'Update Calendar'}
-              </Button>
-
-              {showUpdatePrompt && !isAuthenticated && (
-                <div className="rounded-md border border-border bg-secondary/30 p-3 text-xs text-muted-foreground space-y-2">
-                  <p className="font-mono uppercase tracking-widest text-[10px]">Choose How To Continue</p>
-                  <p>Sign in with Google to connect calendar directly, or login/create app account first.</p>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Button
-                      type="button"
-                      onClick={connectGoogle}
-                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                    >
-                      Sign In With Google
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowUpdatePrompt(false)}
-                      className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-                    >
-                      Use App Login Below
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
           </section>
         </div>
 

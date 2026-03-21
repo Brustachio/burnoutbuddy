@@ -5,7 +5,6 @@ import { SettingsDialog } from "@/components/SettingsDialog";
 import { CalendarDays, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
 
 export interface TimerSettings {
   workMinutes: number;
@@ -23,20 +22,9 @@ const DEFAULT_SETTINGS: TimerSettings = {
 
 const Index = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
   const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"timer" | "account">("timer");
-
-  const handleCalendarClick = () => {
-    if (!isAuthenticated) {
-      setSettingsSection("account");
-      setSettingsOpen(true);
-      return;
-    }
-
-    navigate("/calendar");
-  };
 
   return (
     <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
@@ -51,7 +39,7 @@ const Index = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={handleCalendarClick}
+          onClick={() => navigate("/calendar")}
           className="h-10 w-10 rounded-full bg-secondary/80 backdrop-blur-sm hover:bg-accent"
         >
           <CalendarDays className="h-5 w-5 text-muted-foreground" />
