@@ -42,13 +42,13 @@ function AppearanceSection() {
 
   return (
     <div className="space-y-5">
-      <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+      <h3 className="text-sm text-muted-foreground">
         Appearance
       </h3>
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs text-foreground">Theme</p>
-          <p className="font-mono text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-xs text-foreground">Theme</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
             Currently {theme === "dark" ? "dark" : "light"} mode
           </p>
         </div>
@@ -56,7 +56,7 @@ function AppearanceSection() {
           variant="outline"
           size="icon"
           onClick={() => setTheme(dispatch, theme === "light" ? "dark" : "light")}
-          className="h-9 w-9 rounded-full"
+          className="h-9 w-9 rounded-md"
           aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
         >
           {theme === "light" ? (
@@ -129,16 +129,16 @@ function AccountSection({ onClose }: { onClose: () => void }) {
   if (isAuthenticated) {
     return (
       <div className="space-y-5">
-        <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+        <h3 className="text-sm text-muted-foreground">
           Account
         </h3>
-        <p className="font-mono text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           You are logged in.
         </p>
         <Button
           variant="outline"
           onClick={handleLogout}
-          className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+          className="w-full rounded-md text-xs"
         >
           Log out
         </Button>
@@ -148,7 +148,7 @@ function AccountSection({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+      <h3 className="text-sm text-muted-foreground">
         Account
       </h3>
 
@@ -158,7 +158,7 @@ function AccountSection({ onClose }: { onClose: () => void }) {
           <button
             key={m}
             onClick={() => { setMode(m); setError(null); }}
-            className={`flex-1 rounded py-1.5 font-mono text-[10px] uppercase tracking-widest transition-colors ${
+            className={`flex-1 rounded py-1.5 text-[10px] transition-colors ${
               mode === m
                 ? "bg-accent text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -172,7 +172,7 @@ function AccountSection({ onClose }: { onClose: () => void }) {
       {mode === "login" ? (
         <form onSubmit={handleLogin} className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Email
             </Label>
             <Input
@@ -181,11 +181,11 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="name@example.com"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Password
             </Label>
             <Input
@@ -194,14 +194,14 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="••••••••"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
-          {error && <p className="font-mono text-[10px] text-destructive">{error}</p>}
+          {error && <p className="text-[10px] text-destructive">{error}</p>}
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+            className="w-full rounded-md text-xs"
           >
             {isLoading ? "Signing in…" : "Sign In"}
           </Button>
@@ -209,7 +209,7 @@ function AccountSection({ onClose }: { onClose: () => void }) {
       ) : (
         <form onSubmit={handleRegister} className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Email
             </Label>
             <Input
@@ -218,11 +218,11 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="name@example.com"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Username
             </Label>
             <Input
@@ -231,11 +231,11 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="Choose a username"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Password
             </Label>
             <Input
@@ -244,11 +244,11 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="••••••••"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+            <Label className="text-xs text-muted-foreground">
               Confirm Password
             </Label>
             <Input
@@ -257,14 +257,14 @@ function AccountSection({ onClose }: { onClose: () => void }) {
               placeholder="••••••••"
               required
               disabled={isLoading}
-              className="bg-secondary/50 border-border font-mono text-xs"
+              className="bg-secondary/50 border-border text-xs"
             />
           </div>
-          {error && <p className="font-mono text-[10px] text-destructive">{error}</p>}
+          {error && <p className="text-[10px] text-destructive">{error}</p>}
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+            className="w-full rounded-md text-xs"
           >
             {isLoading ? "Creating account…" : "Register"}
           </Button>
@@ -279,11 +279,11 @@ function AccountSection({ onClose }: { onClose: () => void }) {
 function SystemSection() {
   return (
     <div className="space-y-5">
-      <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+      <h3 className="text-sm text-muted-foreground">
         System
       </h3>
       <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+        <p className="text-[10px] text-muted-foreground">
           Backend Status
         </p>
         <div className="rounded-md border border-border bg-secondary/30 px-4 py-3">
@@ -340,7 +340,7 @@ export const SettingsDialog = ({
         <div className="flex h-[32rem]">
           {/* Sidebar */}
           <div className="w-48 shrink-0 border-r border-border bg-secondary/30 p-3 flex flex-col gap-0.5">
-            <span className="mb-3 px-2 font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+            <span className="mb-3 px-2 text-[10px] text-muted-foreground">
               Settings
             </span>
             {sections.map((s) => (
@@ -354,7 +354,7 @@ export const SettingsDialog = ({
                 }`}
               >
                 <s.icon className="h-3.5 w-3.5" />
-                <span className="font-mono">{s.label}</span>
+                <span>{s.label}</span>
               </button>
             ))}
           </div>
@@ -363,12 +363,12 @@ export const SettingsDialog = ({
           <div className="flex-1 overflow-y-auto p-6">
             {active === "timer" && (
               <div className="space-y-5">
-                <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+                <h3 className="text-sm text-muted-foreground">
                   Pomodoro Timer
                 </h3>
                 {timerFields.map(({ key, label }) => (
                   <div key={key} className="space-y-1.5">
-                    <Label className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs text-muted-foreground">
                       {label}
                     </Label>
                     <Input
@@ -376,13 +376,13 @@ export const SettingsDialog = ({
                       min={1}
                       value={draft[key]}
                       onChange={(e) => update(key, e.target.value)}
-                      className="bg-secondary/50 border-border font-mono"
+                      className="bg-secondary/50 border-border"
                     />
                   </div>
                 ))}
                 <Button
                   onClick={handleSave}
-                  className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+                  className="w-full rounded-md text-xs"
                 >
                   Save Settings
                 </Button>
@@ -395,10 +395,10 @@ export const SettingsDialog = ({
 
             {active === "notifications" && (
               <div className="space-y-4">
-                <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground">
+                <h3 className="text-sm text-muted-foreground">
                   Notifications
                 </h3>
-                <p className="font-mono text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Notification preferences coming soon.
                 </p>
               </div>

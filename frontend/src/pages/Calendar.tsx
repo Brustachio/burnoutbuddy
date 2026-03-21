@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
+const CALENDAR_CACHE_KEY = 'burnoutbuddy_google_calendar_events_v1'
+const CALENDAR_CACHE_TIME_KEY = 'burnoutbuddy_google_calendar_events_synced_at_v1'
 
 type CalendarEvent = {
   id?: string | number
@@ -15,12 +17,50 @@ type CalendarEvent = {
   start_time?: string
   end_time?: string
   source?: string
+  all_day?: boolean
 }
 
 type CalendarApiResponse = {
   events?: CalendarEvent[]
   detail?: string
   message?: string
+}
+
+function readCachedEvents(): CalendarEvent[] {
+  try {
+    const raw = window.localStorage.getItem(CALENDAR_CACHE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? (parsed as CalendarEvent[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeCachedEvents(nextEvents: CalendarEvent[]): void {
+  try {
+    window.localStorage.setItem(CALENDAR_CACHE_KEY, JSON.stringify(nextEvents))
+    window.localStorage.setItem(CALENDAR_CACHE_TIME_KEY, new Date().toISOString())
+  } catch {
+    // If localStorage fails (privacy mode/quota), keep app behavior functional.
+  }
+}
+
+function clearCachedEvents(): void {
+  try {
+    window.localStorage.removeItem(CALENDAR_CACHE_KEY)
+    window.localStorage.removeItem(CALENDAR_CACHE_TIME_KEY)
+  } catch {
+    // Best-effort cache cleanup.
+  }
+}
+
+function readCachedSyncTime(): string | null {
+  try {
+    return window.localStorage.getItem(CALENDAR_CACHE_TIME_KEY)
+  } catch {
+    return null
+  }
 }
 
 function formatDateTime(raw?: string): string {
@@ -39,18 +79,35 @@ function formatDateTime(raw?: string): string {
 function eventStart(rawEvent: CalendarEvent): Date | null {
   const raw = rawEvent.start || rawEvent.start_time
   if (!raw) return null
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split('-').map(Number)
+    if (!year || !month || !day) return null
+    return new Date(year, month - 1, day)
+  }
+
   const parsed = new Date(raw)
   if (Number.isNaN(parsed.getTime())) return null
   return parsed
 }
 
+function isAllDayEvent(event: CalendarEvent, start: Date): boolean {
+  if (event.all_day) return true
+
+  const raw = event.start || event.start_time || ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return true
+
+  return start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0
+}
+
 export default function CalendarPage() {
   const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>(() => readCachedEvents())
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [hasAutoSyncedAfterLink, setHasAutoSyncedAfterLink] = useState(false)
 
   const weekDays = useMemo(() => {
     const days: Date[] = []
@@ -95,6 +152,21 @@ export default function CalendarPage() {
     if (!firstDay) return ''
     return firstDay.toLocaleDateString()
   }, [weekDays])
+
+  const cachedSyncLabel = useMemo(() => {
+    const raw = readCachedSyncTime()
+    if (!raw) return null
+
+    const parsed = new Date(raw)
+    if (Number.isNaN(parsed.getTime())) return null
+
+    return parsed.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }, [events])
 
   useEffect(() => {
     if (!supabase) {
@@ -158,6 +230,27 @@ export default function CalendarPage() {
     }
   }
 
+  const logoutGoogle = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || 'Supabase is not configured.')
+      return
+    }
+
+    const { error: logoutError } = await supabase.auth.signOut()
+    if (logoutError) {
+      setError(logoutError.message || 'Failed to log out.')
+      return
+    }
+
+    setIsGoogleLinked(false)
+    setHasTriedGoogleLogin(false)
+    setHasAutoSyncedAfterLink(false)
+    setEvents([])
+    clearCachedEvents()
+    setError(null)
+    setStatus('Logged out of Google Calendar.')
+  }
+
   const parseApiResponse = async (response: Response): Promise<CalendarApiResponse> => {
     try {
       return (await response.json()) as CalendarApiResponse
@@ -166,7 +259,7 @@ export default function CalendarPage() {
     }
   }
 
-  const syncFromGoogle = async () => {
+  const syncFromGoogle = useCallback(async () => {
     if (!supabase) {
       setError(supabaseConfigError || 'Supabase is not configured.')
       return
@@ -179,7 +272,7 @@ export default function CalendarPage() {
 
     setIsLoading(true)
     setError(null)
-    setStatus(null)
+    setStatus('Syncing Google Calendar...')
 
     try {
       const {
@@ -201,7 +294,20 @@ export default function CalendarPage() {
         headers['X-Google-Access-Token'] = googleToken
       }
 
-      const response = await fetch(`${API_URL}/api/calendar/google/events`, {
+      const rangeStart = new Date()
+      rangeStart.setHours(0, 0, 0, 0)
+      const rangeEnd = new Date(rangeStart)
+      rangeEnd.setDate(rangeEnd.getDate() + 6)
+      rangeEnd.setHours(23, 59, 59, 999)
+
+      const query = new URLSearchParams({
+        time_min: rangeStart.toISOString(),
+        time_max: rangeEnd.toISOString(),
+        include_all_day: 'true',
+        include_past_today: 'true',
+      })
+
+      const response = await fetch(`${API_URL}/api/calendar/google/events?${query.toString()}`, {
         method: 'GET',
         headers,
       })
@@ -213,28 +319,44 @@ export default function CalendarPage() {
 
       const incoming = Array.isArray(data.events) ? data.events : []
       setEvents(incoming)
+      writeCachedEvents(incoming)
       setStatus(`Synced ${incoming.length} events from Google Calendar.`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sync failed.')
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [isGoogleLinked])
+
+  useEffect(() => {
+    if (!isGoogleLinked) {
+      return
+    }
+
+    if (hasAutoSyncedAfterLink) {
+      return
+    }
+
+    setHasAutoSyncedAfterLink(true)
+    void syncFromGoogle()
+  }, [hasAutoSyncedAfterLink, isGoogleLinked, syncFromGoogle])
 
   return (
     <div className="min-h-screen bg-background text-foreground px-4 py-8 sm:px-8">
       <div className="mx-auto w-full max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-mono text-2xl sm:text-3xl uppercase tracking-wide">Calendar Integration</h1>
+            <h1 className="text-2xl sm:text-3xl font-medium">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in with Google to load your calendar directly.
+              {isGoogleLinked
+                ? 'Your Google calendar syncs automatically when you open this page.'
+                : 'Sign in with Google to load your calendar directly.'}
             </p>
           </div>
           <Button
             asChild
             variant="outline"
-            className="rounded-full font-mono text-xs uppercase tracking-widest"
+            className="rounded-md text-xs"
           >
             <Link to="/">
               Back to Timer
@@ -242,14 +364,16 @@ export default function CalendarPage() {
           </Button>
         </div>
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-md border border-border bg-card p-5">
           <div className="mb-4 space-y-1">
-            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              Login Page
+            <h2 className="text-xs text-muted-foreground">
+              {isGoogleLinked ? 'Calendar Sync' : 'Login'}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Start here first. Sign in with Google, then click Update Calendar to load your events.
-            </p>
+            {!isGoogleLinked && (
+              <p className="text-sm text-muted-foreground">
+                Start here first. Sign in with Google to load your events.
+              </p>
+            )}
           </div>
 
           {!hasSupabaseConfig && (
@@ -259,44 +383,46 @@ export default function CalendarPage() {
           )}
 
           <div className="space-y-3">
-            <Button
-              onClick={connectGoogle}
-              disabled={!hasSupabaseConfig}
-              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-            >
-              Login With Google (Supabase)
-            </Button>
+            {!isGoogleLinked && (
+              <Button
+                onClick={connectGoogle}
+                disabled={!hasSupabaseConfig}
+                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+              >
+                Login With Google (Supabase)
+              </Button>
+            )}
 
-            <Button
-              variant="outline"
-              onClick={syncFromGoogle}
-              disabled={isLoading}
-              className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-            >
-              {isLoading ? 'Updating...' : 'Update Calendar'}
-            </Button>
-
-            <p className="text-xs text-muted-foreground">
-              Google status: {isGoogleLinked ? 'Linked' : 'Not linked'}
-            </p>
-
-            {hasTriedGoogleLogin && (
-              <p className="text-xs text-muted-foreground">
-                If you just completed Google login, click Update Calendar to load events.
-              </p>
+            {isGoogleLinked && (
+              <Button
+                variant="outline"
+                onClick={logoutGoogle}
+                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
+              >
+                Logout of Google Calendar
+              </Button>
             )}
 
             <p className="text-xs text-muted-foreground">
-              OAuth redirect target: {OAUTH_REDIRECT_TO}
+              Google Calendar Status: {isGoogleLinked ? 'Linked' : 'Unlinked'}
             </p>
+
+            {!isGoogleLinked && hasTriedGoogleLogin && (
+              <p className="text-xs text-muted-foreground">
+                If you just completed Google login, your calendar updates automatically.
+              </p>
+            )}
+
           </div>
         </section>
 
         {(status || error) && (
           <div
-            className={`rounded-lg border px-4 py-3 text-sm ${
+            className={`rounded-md border px-4 py-3 text-sm ${
               error
                 ? 'border-destructive/40 text-destructive'
+                : isLoading
+                  ? 'border-amber-500/40 text-amber-700 dark:text-amber-400'
                 : 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
             }`}
           >
@@ -304,10 +430,10 @@ export default function CalendarPage() {
           </div>
         )}
 
-        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-md border border-border bg-card p-5">
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="font-mono text-xs uppercase tracking-[0.22em] text-muted-foreground">
-              1 Week Calendar
+            <h2 className="text-xs text-muted-foreground">
+              This week
             </h2>
             <p className="text-xs text-muted-foreground">Showing next 7 days starting {weekStartLabel}</p>
           </div>
@@ -319,7 +445,7 @@ export default function CalendarPage() {
 
               return (
                 <div key={key} className="rounded-md border border-border/70 bg-secondary/20 p-3">
-                  <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {day.toLocaleDateString(undefined, {
                       weekday: 'short',
                       month: 'numeric',
@@ -339,7 +465,9 @@ export default function CalendarPage() {
                           <p className="truncate text-sm font-medium">
                             {event.title || event.summary || 'Untitled event'}
                           </p>
-                          <p className="text-xs text-muted-foreground">{formatDateTime(start.toISOString())}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isAllDayEvent(event, start) ? 'All day' : formatDateTime(start.toISOString())}
+                          </p>
                         </div>
                       ))
                     )}
@@ -351,7 +479,15 @@ export default function CalendarPage() {
 
           {events.length === 0 && (
             <p className="mt-4 text-xs text-muted-foreground">
-              No Google events loaded yet. Sign in with Google and click Update Calendar.
+              {isGoogleLinked
+                ? 'No Google events found for the next 7 days.'
+                : 'No Google events loaded yet. Sign in with Google and wait a moment for automatic sync.'}
+            </p>
+          )}
+
+          {events.length > 0 && cachedSyncLabel && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Showing cached events. Last updated: {cachedSyncLabel}
             </p>
           )}
         </section>
