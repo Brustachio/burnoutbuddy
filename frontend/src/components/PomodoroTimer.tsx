@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, Pause, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/Button";
 import type { TimerSettings } from "@/pages/Index";
 
 type Phase = "work" | "break" | "longBreak";
@@ -14,6 +14,12 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
+  const alarmRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    alarmRef.current = new Audio("/alarm.mp3");
+    alarmRef.current.load();
+  }, []);
 
   const totalSeconds =
     phase === "work"
@@ -30,6 +36,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
   useEffect(() => {
     if (!isRunning) return;
     if (secondsLeft <= 0) {
+      alarmRef.current?.play();
       if (phase === "work") {
         const next =
           (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
