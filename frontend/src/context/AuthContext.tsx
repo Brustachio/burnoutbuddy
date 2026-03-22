@@ -112,11 +112,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return
     }
 
+    const supabaseClient = supabase
+
     async function initializeAuth() {
       try {
         const {
           data: { session },
-        } = await supabase.auth.getSession()
+        } = await supabaseClient.auth.getSession()
 
         // Prefer provider_token but fall back to access_token for existing sessions.
         const sessionToken = session?.provider_token || session?.access_token
@@ -152,7 +154,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabaseClient.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
         localStorage.removeItem('google_provider_token')
         dispatch({ type: AUTH_ACTIONS.LOGOUT })
