@@ -97,18 +97,14 @@ export const PomodoroTimer = ({ settings }: Props) => {
       autoAdvanceRef.current = settings.autoStartNextTimer;
       if (phase === "work") {
         recordFocus(startTime, endTime);
-        const next =
-          (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
-            ? "longBreak"
-            : "break";
         setCompletedSessions((s) => s + 1);
-        setPhase(next);
+        setPhaseIndex((prev) => (prev + 1) % cycle.length);
       } else if (phase === "longBreak") {
         recordLongBreak(startTime, endTime);
-        setPhase("work");
+        setPhaseIndex((prev) => (prev + 1) % cycle.length);
       } else {
         recordShortBreak(startTime, endTime);
-        setPhase("work");
+        setPhaseIndex((prev) => (prev + 1) % cycle.length);
       }
       return;
     }

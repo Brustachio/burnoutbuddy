@@ -156,7 +156,13 @@ export const TaskPanel = () => {
             >
               <Badge
                 variant="outline"
-                className="cursor-pointer text-[9px] border-border text-muted-foreground hover:text-foreground px-1.5 py-0"
+                className={`cursor-pointer text-[9px] px-1.5 py-0 border-0 ${
+                  task.priority === 1
+                    ? "bg-red-500/20 text-red-700 dark:text-red-400"
+                    : task.priority === 2
+                    ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+                    : "bg-secondary text-muted-foreground"
+                }`}
               >
                 {PRIORITY_LABELS[task.priority]}
               </Badge>

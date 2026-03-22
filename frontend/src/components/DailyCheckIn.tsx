@@ -6,6 +6,12 @@ import { WELLNESS_MAP, RECOMMENDATION_PRIORITY } from "@/data/uva-wellness-map";
 import { checkinApi, riskApi, ApiError } from "@/services/api";
 import type { RiskScoreResponse } from "@/types/api";
 
+const CHECKIN_DATE_KEY = "burnoutbuddy_checkin_date";
+
+function getTodayKey(): string {
+  return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD
+}
+
 const FEELING_OPTIONS = [
   { id: "great", label: "I'm feeling great about this session" },
   { id: "overwhelmed", label: "I'm feeling a bit overwhelmed" },
@@ -82,7 +88,13 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 export const DailyCheckIn = () => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(CHECKIN_DATE_KEY) === getTodayKey();
+    } catch {
+      return false;
+    }
+  });
   const [mood, setMood] = useState(5);
   const [stressLevel, setStressLevel] = useState(5);
   const [sleepHours, setSleepHours] = useState(7);
@@ -125,6 +137,7 @@ export const DailyCheckIn = () => {
         notes,
       });
       setSubmitted(true);
+      try { localStorage.setItem(CHECKIN_DATE_KEY, getTodayKey()); } catch { /* ignore */ }
 
       // Fetch risk score after successful check-in
       try {
@@ -180,7 +193,10 @@ export const DailyCheckIn = () => {
           Daily Check-in
         </span>
         <button
-          onClick={() => setCollapsed(true)}
+          onClick={() => {
+            try { localStorage.setItem(CHECKIN_DATE_KEY, getTodayKey()); } catch { /* ignore */ }
+            setCollapsed(true);
+          }}
           className="text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Collapse"
         >

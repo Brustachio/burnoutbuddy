@@ -3,7 +3,6 @@ import { PomodoroTimer } from "@/components/PomodoroTimer";
 import { TaskPanel } from "@/components/TaskPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { DailyCheckIn } from "@/components/DailyCheckIn";
-import { SessionStats } from "@/components/SessionStats";
 import { SessionProvider } from "@/context/SessionContext";
 import { CalendarDays, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -59,9 +58,6 @@ const Index = () => {
 
         {/* Daily check-in — anchored to the right, above the action buttons */}
         <DailyCheckIn />
-
-        {/* Session stats — above the bottom-right action buttons */}
-        <SessionStats />
 
         {/* Bottom-center quick actions */}
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
