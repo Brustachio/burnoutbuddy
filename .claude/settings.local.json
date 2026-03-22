@@ -8,7 +8,9 @@
       "Bash(find /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy/frontend/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
       "Bash(grep -r \"localStorage\\\\|sessionStorage\" /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy/frontend/src --include=*.tsx --include=*.ts)",
       "Bash(ls -la /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy/backend/.env*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(cmd //c 'dir C:\\\\Users\\\\yorna\\\\Documents\\\\burnoutbuddy')",
+      "Bash(cmd //c \"dir /AL C:\\\\Users\\\\yorna\\\\Documents\")"
     ]
   }
 }
