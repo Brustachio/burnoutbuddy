@@ -101,20 +101,19 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
     setSubmitted(false);
   };
 
-  if (collapsed) {
-    return (
-      <button
-        onClick={() => setCollapsed(false)}
-        className="fixed right-6 top-1/2 -translate-y-1/2 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        aria-label="Open daily check-in"
-      >
-        <ClipboardCheck className="h-5 w-5" />
-      </button>
-    );
-  }
-
   return (
-    <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40 w-72 rounded-md border border-border bg-card flex flex-col">
+    <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40">
+      {collapsed ? (
+        <button
+          key="icon"
+          onClick={() => setCollapsed(false)}
+          className="popup-enter flex h-10 w-10 items-center justify-center rounded-full bg-secondary/80 backdrop-blur-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          aria-label="Open daily check-in"
+        >
+          <ClipboardCheck className="h-5 w-5" />
+        </button>
+      ) : (
+        <div key="panel" className="popup-enter w-72 rounded-md border border-border bg-card flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <span className="text-sm text-muted-foreground">
@@ -173,6 +172,8 @@ export const DailyCheckIn = ({ onSubmit }: Props) => {
           </>
         )}
       </div>
+        </div>
+      )}
     </div>
   );
 };

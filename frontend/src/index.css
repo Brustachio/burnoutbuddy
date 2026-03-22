@@ -95,3 +95,37 @@
     @apply border-border;
   }
 }
+
+/* Popup / panel enter transition */
+.popup-enter {
+  transition: opacity 200ms ease-in-out, scale 200ms ease-in-out;
+}
+
+@starting-style {
+  .popup-enter {
+    opacity: 0;
+    scale: 0.95;
+  }
+}
+
+.popup-backdrop {
+  transition: opacity 200ms ease-in-out;
+}
+
+@starting-style {
+  .popup-backdrop {
+    opacity: 0;
+  }
+}
+
+/* PiP window entrance */
+.pip-content {
+  transition: opacity 200ms ease-in-out, transform 200ms ease-in-out;
+}
+
+@starting-style {
+  .pip-content {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}

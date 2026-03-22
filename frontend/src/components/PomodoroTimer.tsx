@@ -2,17 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Play, Pause, RotateCcw, SkipForward, SkipBack, PictureInPicture2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { usePip } from "@/hooks/use-pip";
 import type { TimerSettings } from "@/pages/Index";
 
 type phase = "work" | "break" | "longBreak";
-
-function transferStylesToWindow(target: Window) {
-  document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
-    target.document.head.appendChild(node.cloneNode(true));
-  });
-  const isDark = document.documentElement.classList.contains("dark");
-  target.document.documentElement.classList.toggle("dark", isDark);
-}
 
 interface Props {
   settings: TimerSettings;
@@ -33,16 +26,15 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [secondsLeft, setSecondsLeft] = useState(settings.workMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
-  const [pipWindow, setPipWindow] = useState<Window | null>(null);
 
   const alarmRef = useRef<HTMLAudioElement>(null);
+  const timerContentRef = useRef<HTMLDivElement>(null);
+  const { pipWindow, isSupported: isPiPSupported, togglePip } = usePip({ targetRef: timerContentRef });
 
    useEffect(() => {
     alarmRef.current = new Audio("alarm.mp3");
     alarmRef.current.load();
   }, []);
-
-  const isPiPSupported = typeof window !== "undefined" && !!window.documentPictureInPicture;
 
   const cycle: phase[] = (() => {
     const c: phase[] = [];
@@ -117,32 +109,6 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const phaseLabel =
     phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
 
-  const togglePiP = async () => {
-    if (pipWindow) {
-      pipWindow.close();
-      return;
-    }
-    if (!window.documentPictureInPicture) return;
-    const pip = await window.documentPictureInPicture.requestWindow({ width: 300, height: 200 });
-    transferStylesToWindow(pip);
-    pip.addEventListener("pagehide", () => setPipWindow(null));
-    setPipWindow(pip);
-  };
-
-  useEffect(() => {
-    if (!pipWindow) return;
-    const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      pipWindow.document.documentElement.classList.toggle("dark", isDark);
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, [pipWindow]);
-
-  useEffect(() => {
-    return () => { pipWindow?.close(); };
-  }, [pipWindow]);
-
   useEffect(() => {
     document.title = isRunning
       ? `${phaseLabel} ${formatTime(secondsLeft)} — BurnoutBuddy`
@@ -155,7 +121,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       {/* Main Stack — phase label + clock + dots + controls */}
-      <div className={`flex flex-col items-center${pipWindow ? " opacity-30 transition-opacity" : " transition-opacity"}`}>
+      <div ref={timerContentRef} className={`flex flex-col items-center${pipWindow ? " opacity-30 transition-opacity" : " transition-opacity"}`}>
         {/* Phase label — tight to the timer */}
         <span className="block text-sm tracking-widest uppercase text-muted-foreground text-center" style={{ marginBottom: "18px" }}>
           {phaseLabel}
@@ -175,7 +141,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
             <div
               key={i}
               className={`h-2 w-2 rounded-full transition-colors ${
-                i < completedSessions ? "bg-foreground" : "bg-border"
+                i < completedSessions % settings.sessionsBeforeLongBreak ? "bg-foreground" : "bg-border"
               }`}
             />
           ))}
@@ -221,7 +187,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => { togglePiP().catch(console.error); }}
+              onClick={() => { togglePip().catch(console.error); }}
               className="h-11 w-11 rounded-full bg-secondary/60 backdrop-blur-sm hover:bg-accent"
               aria-label={pipWindow ? "Exit mini-player" : "Open mini-player"}
             >
@@ -241,16 +207,23 @@ export const PomodoroTimer = ({ settings }: Props) => {
 
       {/* PiP portal — borderless, with inline Start/Stop control */}
       {pipWindow && ReactDOM.createPortal(
-        <div style={{
+        <div className="pip-content" style={{
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "16px",
+          gap: "12px",
           width: "100vw",
           height: "100vh",
-          background: "transparent",
         }}>
+          <span style={{
+            fontSize: "clamp(0.6rem, 4vw, 0.75rem)",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "var(--muted-foreground)",
+          }}>
+            {phaseLabel}
+          </span>
           <span
             className="font-medium tracking-tighter text-foreground select-none leading-none"
             style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)", fontVariantNumeric: "tabular-nums" }}
