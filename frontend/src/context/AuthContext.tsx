@@ -89,6 +89,7 @@ async function registerWithBackend(providerToken: string): Promise<User | null> 
     const user = await withTimeout(authApi.googleLogin(), AUTH_INIT_TIMEOUT_MS)
     return user
   } catch {
+    localStorage.removeItem('google_provider_token')
     return null
   }
 }
@@ -120,8 +121,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           data: { session },
         } = await supabaseClient.auth.getSession()
 
-        // Prefer provider_token but fall back to access_token for existing sessions.
-        const sessionToken = session?.provider_token || session?.access_token
+        const sessionToken = session?.provider_token || null
+        if (sessionToken) {
+          localStorage.setItem('google_provider_token', sessionToken)
+        }
         const storedToken = localStorage.getItem('google_provider_token')
         const token = sessionToken || storedToken
 
@@ -161,7 +164,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return
       }
 
-      const token = session.provider_token || session.access_token || localStorage.getItem('google_provider_token')
+      if (session.provider_token) {
+        localStorage.setItem('google_provider_token', session.provider_token)
+      }
+
+      const token = session.provider_token || localStorage.getItem('google_provider_token')
       if (token) {
         const user = await registerWithBackend(token)
         if (user) {
@@ -190,6 +197,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       options: {
         redirectTo: window.location.origin,
         scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
+        queryParams: {
+          prompt: 'consent',
+          access_type: 'offline',
+          include_granted_scopes: 'true',
+        },
       },
     })
   }, [])

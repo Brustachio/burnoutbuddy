@@ -30,8 +30,10 @@ export class ApiError extends Error {
 async function getGoogleToken(): Promise<string | null> {
   if (supabase) {
     const { data } = await supabase.auth.getSession();
-    if (data.session?.provider_token) return data.session.provider_token;
-    if (data.session?.access_token) return data.session.access_token;
+    if (data.session?.provider_token) {
+      localStorage.setItem("google_provider_token", data.session.provider_token);
+      return data.session.provider_token;
+    }
   }
   return localStorage.getItem("google_provider_token");
 }
@@ -53,6 +55,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);
+    if (res.status === 401 && body?.detail === "Invalid Google access token.") {
+      localStorage.removeItem("google_provider_token");
+    }
     if (res.status === 422 && body?.detail && Array.isArray(body.detail)) {
       const messages = body.detail.map((d: { msg: string }) => d.msg).join("; ");
       throw new ApiError(`Validation error: ${messages}`, 422, body.detail);
