@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
 // Note: You might need to adjust `useAuth` to `useAuthState` depending on how 
 // you named the hook that provides the `user` and `isLoading` variables in your AuthContext.
@@ -10,16 +10,19 @@ export default function GetStarted() {
   const { user, isLoading } = useAuth(); 
   const navigate = useNavigate();
 
+  // Keep effect for compatibility with existing code path
   useEffect(() => {
-    // If the app has finished loading auth state and a user exists, bounce them to the dashboard
     if (!isLoading && user) {
       navigate("/", { replace: true });
     }
   }, [user, isLoading, navigate]);
 
-  // Return a blank screen while checking auth or redirecting to prevent a flash of the UI
-  if (isLoading || user) {
-    return null; 
+  // If auth is loading, or user is already logged in, do an immediate redirect.
+  if (isLoading) {
+    return null;
+  }
+  if (user) {
+    return <Navigate to="/" replace />;
   }
 
   return (
