@@ -61,6 +61,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'get-started',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <GetStarted />
+          </Suspense>
+        ),
+      },
+      {
         path: '*',
         loader: () => redirect('/'),
       },

@@ -31,6 +31,7 @@ async function getGoogleToken(): Promise<string | null> {
   if (supabase) {
     const { data } = await supabase.auth.getSession();
     if (data.session?.provider_token) return data.session.provider_token;
+    if (data.session?.access_token) return data.session.access_token;
   }
   return localStorage.getItem("google_provider_token");
 }

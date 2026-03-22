@@ -72,42 +72,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return
     }
 
-    // Check existing session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.provider_token) {
-        const user = await registerWithBackend(session.provider_token)
-        if (user) {
-          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
-          return
+    async function initializeAuth() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        // Prefer provider_token but fall back to access_token for existing sessions.
+        const sessionToken = session?.provider_token || session?.access_token
+        const storedToken = localStorage.getItem('google_provider_token')
+        const token = sessionToken || storedToken
+
+        if (token) {
+          const user = await registerWithBackend(token)
+          if (user) {
+            dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
+            return
+          }
+
+          localStorage.removeItem('google_provider_token')
         }
+
+        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
+      } catch (error) {
+        console.error('Auth init failed', error)
+        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
       }
-      // Fall back: check if we have a stored token (provider_token is only available right after OAuth)
-      const storedToken = localStorage.getItem('google_provider_token')
-      if (session && storedToken) {
-        try {
-          const user = await authApi.googleLogin()
-          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
-          return
-        } catch {
-          // token expired or invalid
-        }
-      }
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
-    })
+    }
+
+    initializeAuth()
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.provider_token) {
-        const user = await registerWithBackend(session.provider_token)
-        if (user) {
-          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
-          return
-        }
-      }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!session) {
         localStorage.removeItem('google_provider_token')
         dispatch({ type: AUTH_ACTIONS.LOGOUT })
+        return
       }
+
+      const token = session.provider_token || session.access_token || localStorage.getItem('google_provider_token')
+      if (token) {
+        const user = await registerWithBackend(token)
+        if (user) {
+          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
+          return
+        }
+      }
+
+      // If we can't resolve a user from session, ensure app exits protected state
+      localStorage.removeItem('google_provider_token')
+      dispatch({ type: AUTH_ACTIONS.LOGOUT })
     })
 
     return () => subscription.unsubscribe()
