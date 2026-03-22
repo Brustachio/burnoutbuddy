@@ -122,6 +122,34 @@ export const PomodoroTimer = ({ settings }: Props) => {
     <div className="flex min-h-screen flex-col items-center justify-center">
       {/* Main Stack — phase label + clock + dots + controls */}
       <div ref={timerContentRef} className={`flex flex-col items-center${pipWindow ? " opacity-30 transition-opacity" : " transition-opacity"}`}>
+        {/* Mode selector buttons — above the phase label */}
+        <div className="mb-8 flex items-center gap-2">
+          <Button
+            variant={phase === "work" ? "default" : "outline"}
+            onClick={() => setPhase("work")}
+            className="rounded-full text-xs uppercase tracking-widest"
+            size="sm"
+          >
+            Focus
+          </Button>
+          <Button
+            variant={phase === "break" ? "default" : "outline"}
+            onClick={() => setPhase("break")}
+            className="rounded-full text-xs uppercase tracking-widest"
+            size="sm"
+          >
+            Short Break
+          </Button>
+          <Button
+            variant={phase === "longBreak" ? "default" : "outline"}
+            onClick={() => setPhase("longBreak")}
+            className="rounded-full text-xs uppercase tracking-widest"
+            size="sm"
+          >
+            Long Break
+          </Button>
+        </div>
+
         {/* Phase label — tight to the timer */}
         <span className="block text-sm tracking-widest uppercase text-muted-foreground text-center" style={{ marginBottom: "18px" }}>
           {phaseLabel}
