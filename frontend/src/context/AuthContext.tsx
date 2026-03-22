@@ -66,6 +66,12 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [state, dispatch] = useReducer(authReducer, initialState)
 
+  const clearHashFragment = () => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  }
+
   useEffect(() => {
     if (!supabase) {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
@@ -86,6 +92,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (token) {
           const user = await registerWithBackend(token)
           if (user) {
+            clearHashFragment()
             dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
             return
           }
@@ -116,6 +123,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (token) {
         const user = await registerWithBackend(token)
         if (user) {
+          clearHashFragment()
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
           return
         }

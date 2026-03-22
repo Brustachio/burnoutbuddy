@@ -1,4 +1,4 @@
-import { createBrowserRouter, redirect } from 'react-router-dom'
+import { createBrowserRouter, redirect, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import RootLayout from '../layouts/RootLayout'
 import { useAuthState } from '@/context/AuthContext'
@@ -67,6 +67,14 @@ export const router = createBrowserRouter([
             <GetStarted />
           </Suspense>
         ),
+      },
+      {
+        path: 'getstarted',
+        element: <Navigate to="/get-started" replace />,
+      },
+      {
+        path: 'index',
+        element: <Navigate to="/" replace />,
       },
       {
         path: '*',
