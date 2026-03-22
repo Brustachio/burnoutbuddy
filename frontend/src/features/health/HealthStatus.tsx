@@ -2,8 +2,12 @@ import { use } from 'react'
 import { StatusDot } from '../../components/ui/StatusDot'
 import { useHealthStatus } from '../../hooks/useHealthStatus'
 
+interface HealthData {
+  status: 'healthy' | 'error' | 'loading'
+}
+
 export function HealthStatus() {
-  const data = use(useHealthStatus())
+  const data = use(useHealthStatus()) as HealthData
 
   return (
     <div className="flex items-center">
