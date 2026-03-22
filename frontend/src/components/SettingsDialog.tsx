@@ -11,10 +11,10 @@ import { Timer, User, Bell, Palette, Activity } from "lucide-react";
 import { MoonIcon, SunIcon } from "lucide-react";
 import type { TimerSettings } from "@/pages/Index";
 import { useAppState, useAppDispatch, setTheme } from "@/context/AppContext";
-import { useAuth } from "@/context/AuthContext";
 import { ErrorBoundary } from "@/features/health/ErrorBoundary";
 import { HealthStatus } from "@/features/health/HealthStatus";
 import { LoadingStatus } from "@/features/health/LoadingStatus";
+import { hasSupabaseConfig, supabase, supabaseConfigError } from "@/lib/supabase";
 
 interface Props {
   open: boolean;
@@ -73,78 +73,104 @@ function AppearanceSection() {
 // ── Account tab ───────────────────────────────────────────────────────────────
 
 function AccountSection({ onClose }: { onClose: () => void }) {
-  const { isAuthenticated, login, register, logout } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false);
+  const [googleName, setGoogleName] = useState<string | null>(null);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogout = () => {
-    logout();
-    onClose();
-  };
+  useEffect(() => {
+    if (!supabase) return;
+    const supabaseClient = supabase;
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    const fd = new FormData(e.currentTarget);
-    const result = await login({
-      email: fd.get("email") as string,
-      password: fd.get("password") as string,
+    const updateFromSession = async () => {
+      const {
+        data: { session },
+      } = await supabaseClient.auth.getSession();
+
+      const linked = Boolean(session);
+      setIsGoogleLinked(linked);
+
+      const metadata = session?.user?.user_metadata as Record<string, unknown> | undefined;
+      const fullName =
+        (typeof metadata?.full_name === "string" && metadata.full_name) ||
+        (typeof metadata?.name === "string" && metadata.name) ||
+        null;
+      const email = session?.user?.email || null;
+
+      setGoogleName(fullName || (email ? email.split("@")[0] : null));
+      setGoogleEmail(email);
+    };
+
+    void updateFromSession();
+
+    const {
+      data: { subscription },
+    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      const linked = Boolean(session);
+      setIsGoogleLinked(linked);
+
+      const metadata = session?.user?.user_metadata as Record<string, unknown> | undefined;
+      const fullName =
+        (typeof metadata?.full_name === "string" && metadata.full_name) ||
+        (typeof metadata?.name === "string" && metadata.name) ||
+        null;
+      const email = session?.user?.email || null;
+
+      setGoogleName(fullName || (email ? email.split("@")[0] : null));
+      setGoogleEmail(email);
     });
-    if (result.success) {
-      onClose();
-    } else {
-      setError(result.error || "Login failed");
-    }
-    setIsLoading(false);
-  };
 
-  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || "Supabase is not configured.");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
-    const fd = new FormData(e.currentTarget);
-    const password = fd.get("password") as string;
-    const confirmPassword = fd.get("confirmPassword") as string;
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+        scopes: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
+      },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message || "Google login failed.");
       setIsLoading(false);
       return;
     }
-    const result = await register({
-      email: fd.get("email") as string,
-      username: fd.get("username") as string,
-      password,
-      confirmPassword,
-    });
-    if (result.success) {
-      onClose();
-    } else {
-      setError(result.error || "Registration failed");
-    }
-    setIsLoading(false);
+
+    onClose();
   };
 
-  if (isAuthenticated) {
-    return (
-      <div className="space-y-5">
-        <h3 className="text-sm text-muted-foreground">
-          Account
-        </h3>
-        <p className="text-xs text-muted-foreground">
-          You are logged in.
-        </p>
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          className="w-full rounded-md text-xs"
-        >
-          Log out
-        </Button>
-      </div>
-    );
-  }
+  const handleGoogleLogout = async () => {
+    if (!supabase) {
+      setError(supabaseConfigError || "Supabase is not configured.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    const { error: logoutError } = await supabase.auth.signOut();
+    if (logoutError) {
+      setError(logoutError.message || "Google logout failed.");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsGoogleLinked(false);
+    setGoogleName(null);
+    setGoogleEmail(null);
+    setIsLoading(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -152,124 +178,46 @@ function AccountSection({ onClose }: { onClose: () => void }) {
         Account
       </h3>
 
-      {/* Mode toggle */}
-      <div className="flex gap-1 rounded-md bg-secondary/40 p-1">
-        {(["login", "register"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => { setMode(m); setError(null); }}
-            className={`flex-1 rounded py-1.5 text-[10px] transition-colors ${
-              mode === m
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+      {!hasSupabaseConfig && (
+        <p className="text-[10px] text-destructive">
+          {supabaseConfigError}
+        </p>
+      )}
+
+      <div className="rounded-md border border-border bg-secondary/30 p-3 space-y-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          Google Calendar
+        </p>
+        <p className="text-xs text-foreground">
+          {isGoogleLinked
+            ? `Connected as ${googleName || "Google user"}`
+            : "Not connected"}
+        </p>
+        {isGoogleLinked && googleEmail && (
+          <p className="text-[10px] text-muted-foreground">{googleEmail}</p>
+        )}
+
+        {isGoogleLinked ? (
+          <Button
+            variant="outline"
+            onClick={handleGoogleLogout}
+            disabled={isLoading || !hasSupabaseConfig}
+            className="w-full rounded-md text-xs"
           >
-            {m === "login" ? "Sign In" : "Register"}
-          </button>
-        ))}
+            {isLoading ? "Logging out..." : "Log out of Google"}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleGoogleLogin}
+            disabled={isLoading || !hasSupabaseConfig}
+            className="w-full rounded-md text-xs"
+          >
+            {isLoading ? "Connecting..." : "Login With Google"}
+          </Button>
+        )}
       </div>
 
-      {mode === "login" ? (
-        <form onSubmit={handleLogin} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Email
-            </Label>
-            <Input
-              name="email"
-              type="email"
-              placeholder="name@example.com"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Password
-            </Label>
-            <Input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          {error && <p className="text-[10px] text-destructive">{error}</p>}
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-md text-xs"
-          >
-            {isLoading ? "Signing in…" : "Sign In"}
-          </Button>
-        </form>
-      ) : (
-        <form onSubmit={handleRegister} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Email
-            </Label>
-            <Input
-              name="email"
-              type="email"
-              placeholder="name@example.com"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Username
-            </Label>
-            <Input
-              name="username"
-              type="text"
-              placeholder="Choose a username"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Password
-            </Label>
-            <Input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">
-              Confirm Password
-            </Label>
-            <Input
-              name="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              required
-              disabled={isLoading}
-              className="bg-secondary/50 border-border text-xs"
-            />
-          </div>
-          {error && <p className="text-[10px] text-destructive">{error}</p>}
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-md text-xs"
-          >
-            {isLoading ? "Creating account…" : "Register"}
-          </Button>
-        </form>
-      )}
+      {error && <p className="text-[10px] text-destructive">{error}</p>}
     </div>
   );
 }

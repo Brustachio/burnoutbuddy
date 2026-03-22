@@ -11,13 +11,6 @@ interface AllTimeStats {
   total_break_sessions: number;
 }
 
-function formatHMS(totalSeconds: number): string {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
-}
-
 interface StatRowProps {
   label: string;
   value: string | number;
@@ -51,7 +44,6 @@ export const SessionStats = () => {
     shortBreakCount,
     longBreakCount,
     cyclesCompleted,
-    totalElapsedSeconds,
     tasksCompleted,
   } = stats;
 
@@ -108,7 +100,6 @@ export const SessionStats = () => {
             <StatRow label="Short breaks" value={shortBreakCount} />
             <StatRow label="Long breaks" value={longBreakCount} />
             <StatRow label="Cycles (4 focus)" value={cyclesCompleted} accent />
-            <StatRow label="Elapsed" value={formatHMS(totalElapsedSeconds)} accent />
             <StatRow label="Tasks done" value={tasksCompleted} />
           </div>
 
