@@ -1,15 +1,8 @@
 import { useState, useEffect } from "react";
 import { ChevronUp, BarChart2 } from "lucide-react";
 import { useSession } from "@/context/SessionContext";
-import { supabase } from "@/lib/supabase";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-interface AllTimeStats {
-  total_sessions: number;
-  total_focus_sessions: number;
-  total_break_sessions: number;
-}
+import { sessionApi } from "@/services/api";
+import type { PomodoroSessionStatsResponse } from "@/types/api";
 
 interface StatRowProps {
   label: string;
@@ -36,8 +29,8 @@ function StatRow({ label, value, accent }: StatRowProps) {
 
 export const SessionStats = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [allTime, setAllTime] = useState<AllTimeStats | null>(null);
-  const { stats } = useSession();
+  const [allTime, setAllTime] = useState<PomodoroSessionStatsResponse | null>(null);
+  const { stats, isTimerRunning } = useSession();
 
   const {
     focusCount,
@@ -48,23 +41,7 @@ export const SessionStats = () => {
   } = stats;
 
   useEffect(() => {
-    async function fetchStats() {
-      if (!supabase) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      const googleToken = session?.provider_token || localStorage.getItem("google_provider_token") || "";
-      if (!googleToken) return;
-      try {
-        const res = await fetch(`${API_URL}/api/sessions/stats`, {
-          headers: { "X-Google-Access-Token": googleToken },
-        });
-        if (res.ok) {
-          setAllTime(await res.json());
-        }
-      } catch {
-        // silently ignore fetch errors
-      }
-    }
-    fetchStats();
+    sessionApi.getStats().then(setAllTime).catch(() => {});
   }, []);
 
   return (
@@ -79,7 +56,7 @@ export const SessionStats = () => {
           <BarChart2 className="h-5 w-5" />
         </button>
       ) : (
-        <div key="panel" className="popup-enter w-72 rounded-md border border-border bg-card flex flex-col">
+        <div key="panel" className={`popup-enter w-72 rounded-md border border-border bg-card flex flex-col transition-opacity duration-500 ${isTimerRunning ? "opacity-30" : "opacity-100"}`}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-3 pb-2">
             <span className="text-sm text-muted-foreground">

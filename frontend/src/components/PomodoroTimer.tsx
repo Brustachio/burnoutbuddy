@@ -3,6 +3,10 @@ import ReactDOM from "react-dom";
 import { Play, Pause, RotateCcw, SkipForward, SkipBack, PictureInPicture2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { usePip } from "@/hooks/use-pip";
+import { useSyncTasks } from "@/hooks/use-sync-tasks";
+import { useSession } from "@/context/SessionContext";
+import { SyncPopup } from "@/components/SyncPopup";
+import { useNavigate } from "react-router-dom";
 import type { TimerSettings } from "@/pages/Index";
 
 type phase = "work" | "break" | "longBreak";
@@ -27,9 +31,18 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
 
+  const { setTimerRunning, setTasks, triggerEmergency, recordFocus, recordShortBreak, recordLongBreak } = useSession();
+  const navigate = useNavigate();
+  const { syncState, startSync } = useSyncTasks();
+  const [syncPopupOpen, setSyncPopupOpen] = useState(false);
+  const hasSynced = useRef(false);
+  const phaseStartRef = useRef<Date | null>(null);
+
   const alarmRef = useRef<HTMLAudioElement>(null);
   const timerContentRef = useRef<HTMLDivElement>(null);
   const { pipWindow, isSupported: isPiPSupported, togglePip } = usePip({ targetRef: timerContentRef });
+
+  useEffect(() => { setTimerRunning(isRunning); }, [isRunning, setTimerRunning]);
 
    useEffect(() => {
     alarmRef.current = new Audio("alarm.mp3");
@@ -73,16 +86,24 @@ export const PomodoroTimer = ({ settings }: Props) => {
     if (!isRunning) return;
     if (secondsLeft <= 0) {
       alarmRef.current?.play();
+      const endTime = new Date();
+      const startTime = phaseStartRef.current || new Date(endTime.getTime() - totalSeconds * 1000);
       if (phase === "work") {
+        recordFocus(startTime, endTime);
         const next =
           (completedSessions + 1) % settings.sessionsBeforeLongBreak === 0
             ? "longBreak"
             : "break";
         setCompletedSessions((s) => s + 1);
         setPhase(next);
+      } else if (phase === "longBreak") {
+        recordLongBreak(startTime, endTime);
+        setPhase("work");
       } else {
+        recordShortBreak(startTime, endTime);
         setPhase("work");
       }
+      phaseStartRef.current = new Date();
       return;
     }
     const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
@@ -93,10 +114,19 @@ export const PomodoroTimer = ({ settings }: Props) => {
     setIsRunning(false);
     setPhaseIndex(0);
     setCompletedSessions(0);
+    setSecondsLeft(settings.workMinutes * 60);
   };
 
   const skip = () => {
+    if (phaseStartRef.current && isRunning) {
+      const endTime = new Date();
+      const startTime = phaseStartRef.current;
+      if (phase === "work") recordFocus(startTime, endTime);
+      else if (phase === "longBreak") recordLongBreak(startTime, endTime);
+      else recordShortBreak(startTime, endTime);
+    }
     if (phase === "work") setCompletedSessions((s) => s + 1);
+    phaseStartRef.current = isRunning ? new Date() : null;
     setPhaseIndex((i) => (i + 1) % cycle.length);
   };
 
@@ -108,6 +138,35 @@ export const PomodoroTimer = ({ settings }: Props) => {
 
   const phaseLabel =
     phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
+
+  const handleStartClick = () => {
+    if (isRunning) {
+      setIsRunning(false);
+    } else if (!hasSynced.current) {
+      startSync();
+      setSyncPopupOpen(true);
+    } else {
+      phaseStartRef.current = new Date();
+      setIsRunning(true);
+    }
+  };
+
+  const handleSyncConfirm = () => {
+    setSyncPopupOpen(false);
+    hasSynced.current = true;
+    if (syncState.tasks.length > 0) {
+      setTasks(syncState.tasks);
+    }
+    phaseStartRef.current = new Date();
+    setIsRunning(true);
+  };
+
+  const handleSyncSkip = () => {
+    setSyncPopupOpen(false);
+    hasSynced.current = true;
+    phaseStartRef.current = new Date();
+    setIsRunning(true);
+  };
 
   useEffect(() => {
     document.title = isRunning
@@ -157,8 +216,8 @@ export const PomodoroTimer = ({ settings }: Props) => {
 
         {/* Giant clock */}
         <span
-          className="font-medium tracking-tighter text-foreground select-none leading-none"
-          style={{ fontSize: "clamp(6rem, 18vw, 14rem)", fontVariantNumeric: "tabular-nums" }}
+          className="font-medium text-foreground select-none leading-none"
+          style={{ fontSize: "clamp(6rem, 18vw, 14rem)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.01em" }}
         >
           {formatTime(secondsLeft)}
         </span>
@@ -194,7 +253,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
             <RotateCcw className="h-4 w-4" />
           </Button>
           <Button
-            onClick={() => setIsRunning(!isRunning)}
+            onClick={handleStartClick}
             className="h-11 w-20 rounded-md"
           >
             {isRunning ? (
@@ -223,6 +282,18 @@ export const PomodoroTimer = ({ settings }: Props) => {
             </Button>
           )}
         </div>
+
+        {/* Panic button */}
+        <button
+          onClick={() => {
+            setIsRunning(false);
+            triggerEmergency();
+            navigate("/emergency");
+          }}
+          className="mt-6 text-[10px] text-muted-foreground/40 hover:text-destructive transition-colors"
+        >
+          I need help right now
+        </button>
       </div>
 
       {/* Subtle progress bar at very bottom */}
@@ -232,6 +303,15 @@ export const PomodoroTimer = ({ settings }: Props) => {
           style={{ width: `${progress * 100}%` }}
         />
       </div>
+
+      {/* Sync popup */}
+      <SyncPopup
+        open={syncPopupOpen}
+        syncState={syncState}
+        onConfirm={handleSyncConfirm}
+        onSkip={handleSyncSkip}
+        onOpenChange={setSyncPopupOpen}
+      />
 
       {/* PiP portal — borderless, with inline Start/Stop control */}
       {pipWindow && ReactDOM.createPortal(
@@ -253,8 +333,8 @@ export const PomodoroTimer = ({ settings }: Props) => {
             {phaseLabel}
           </span>
           <span
-            className="font-medium tracking-tighter text-foreground select-none leading-none"
-            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)", fontVariantNumeric: "tabular-nums" }}
+            className="font-medium text-foreground select-none leading-none"
+            style={{ fontSize: "clamp(2.5rem, 20vw, 5rem)", fontVariantNumeric: "tabular-nums", letterSpacing: "0.01em" }}
           >
             {formatTime(secondsLeft)}
           </span>

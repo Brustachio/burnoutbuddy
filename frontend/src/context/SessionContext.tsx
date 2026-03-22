@@ -1,4 +1,13 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { sessionApi } from "@/services/api";
+
+export interface Task {
+  id: string;
+  title: string;
+  done: boolean;
+  priority: number;
+  reasoning?: string;
+}
 
 export interface SessionStats {
   focusCount: number;
@@ -11,12 +20,17 @@ export interface SessionStats {
 
 interface SessionContextValue {
   stats: SessionStats;
-  recordFocus: () => void;
-  recordShortBreak: () => void;
-  recordLongBreak: () => void;
+  tasks: Task[];
+  setTasks: (tasks: Task[] | ((prev: Task[]) => Task[])) => void;
+  isTimerRunning: boolean;
+  setTimerRunning: (running: boolean) => void;
+  recordFocus: (startTime: Date, endTime: Date) => void;
+  recordShortBreak: (startTime: Date, endTime: Date) => void;
+  recordLongBreak: (startTime: Date, endTime: Date) => void;
   addElapsed: (seconds: number) => void;
   setTasksCompleted: (count: number) => void;
   resetSession: () => void;
+  triggerEmergency: () => void;
 }
 
 const DEFAULT_STATS: SessionStats = {
@@ -30,6 +44,20 @@ const DEFAULT_STATS: SessionStats = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+function recordSessionToBackend(
+  sessionType: string,
+  startTime: Date,
+  endTime: Date,
+) {
+  sessionApi.create({
+    start_time: startTime.toISOString(),
+    end_time: endTime.toISOString(),
+    session_type: sessionType,
+  }).catch((e) => {
+    console.error("Failed to record session to backend:", e);
+  });
+}
+
 export function SessionProvider({
   children,
   sessionsBeforeLongBreak = 4,
@@ -38,8 +66,10 @@ export function SessionProvider({
   sessionsBeforeLongBreak?: number;
 }) {
   const [stats, setStats] = useState<SessionStats>(DEFAULT_STATS);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isTimerRunning, setTimerRunning] = useState(false);
 
-  const recordFocus = useCallback(() => {
+  const recordFocus = useCallback((startTime: Date, endTime: Date) => {
     setStats((s) => {
       const next = s.focusCount + 1;
       return {
@@ -48,14 +78,17 @@ export function SessionProvider({
         cyclesCompleted: Math.floor(next / sessionsBeforeLongBreak),
       };
     });
+    recordSessionToBackend("focus", startTime, endTime);
   }, [sessionsBeforeLongBreak]);
 
-  const recordShortBreak = useCallback(() => {
+  const recordShortBreak = useCallback((startTime: Date, endTime: Date) => {
     setStats((s) => ({ ...s, shortBreakCount: s.shortBreakCount + 1 }));
+    recordSessionToBackend("break", startTime, endTime);
   }, []);
 
-  const recordLongBreak = useCallback(() => {
+  const recordLongBreak = useCallback((startTime: Date, endTime: Date) => {
     setStats((s) => ({ ...s, longBreakCount: s.longBreakCount + 1 }));
+    recordSessionToBackend("break", startTime, endTime);
   }, []);
 
   const addElapsed = useCallback((seconds: number) => {
@@ -70,16 +103,26 @@ export function SessionProvider({
     setStats(DEFAULT_STATS);
   }, []);
 
+  const triggerEmergency = useCallback(() => {
+    setTimerRunning(false);
+    setStats(DEFAULT_STATS);
+  }, []);
+
   return (
     <SessionContext.Provider
       value={{
         stats,
+        tasks,
+        setTasks,
+        isTimerRunning,
+        setTimerRunning,
         recordFocus,
         recordShortBreak,
         recordLongBreak,
         addElapsed,
         setTasksCompleted,
         resetSession,
+        triggerEmergency,
       }}
     >
       {children}

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
+import { calendarApi } from '@/services/api'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
 const CALENDAR_CACHE_KEY = 'burnoutbuddy_google_calendar_events_v1'
 const CALENDAR_CACHE_TIME_KEY = 'burnoutbuddy_google_calendar_events_synced_at_v1'
@@ -18,12 +18,6 @@ type CalendarEvent = {
   end_time?: string
   source?: string
   all_day?: boolean
-}
-
-type CalendarApiResponse = {
-  events?: CalendarEvent[]
-  detail?: string
-  message?: string
 }
 
 function readCachedEvents(): CalendarEvent[] {
@@ -251,20 +245,7 @@ export default function CalendarPage() {
     setStatus('Logged out of Google Calendar.')
   }
 
-  const parseApiResponse = async (response: Response): Promise<CalendarApiResponse> => {
-    try {
-      return (await response.json()) as CalendarApiResponse
-    } catch {
-      return {}
-    }
-  }
-
   const syncFromGoogle = useCallback(async () => {
-    if (!supabase) {
-      setError(supabaseConfigError || 'Supabase is not configured.')
-      return
-    }
-
     if (!isGoogleLinked) {
       setError('Use Login with Google first to link your calendar account.')
       return
@@ -275,49 +256,8 @@ export default function CalendarPage() {
     setStatus('Syncing Google Calendar...')
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      const supabaseToken = session?.access_token || ''
-      const googleToken = session?.provider_token || localStorage.getItem('google_provider_token') || ''
-      const headers: Record<string, string> = {}
-      const bearerToken = supabaseToken
-
-      if (bearerToken) {
-        headers.Authorization = `Bearer ${bearerToken}`
-      }
-      if (supabaseToken) {
-        headers['X-Supabase-Access-Token'] = supabaseToken
-      }
-      if (googleToken) {
-        headers['X-Google-Access-Token'] = googleToken
-      }
-
-      const rangeStart = new Date()
-      rangeStart.setHours(0, 0, 0, 0)
-      const rangeEnd = new Date(rangeStart)
-      rangeEnd.setDate(rangeEnd.getDate() + 6)
-      rangeEnd.setHours(23, 59, 59, 999)
-
-      const query = new URLSearchParams({
-        time_min: rangeStart.toISOString(),
-        time_max: rangeEnd.toISOString(),
-        include_all_day: 'true',
-        include_past_today: 'true',
-      })
-
-      const response = await fetch(`${API_URL}/api/calendar/google/events?${query.toString()}`, {
-        method: 'GET',
-        headers,
-      })
-
-      const data = await parseApiResponse(response)
-      if (!response.ok) {
-        throw new Error(data.detail || data.message || 'Failed to fetch Google events.')
-      }
-
-      const incoming = Array.isArray(data.events) ? data.events : []
+      const data = await calendarApi.getEvents()
+      const incoming = data.events ?? []
       setEvents(incoming)
       writeCachedEvents(incoming)
       setStatus(`Synced ${incoming.length} events from Google Calendar.`)

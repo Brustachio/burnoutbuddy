@@ -1,33 +1,30 @@
-import { createContext, useContext, useReducer, ReactNode, useCallback } from 'react'
-import { AuthState, LoginCredentials, RegisterCredentials, AuthResult } from '@/types/auth'
+import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react'
+import { supabase } from '@/lib/supabase'
+import { authApi } from '@/services/api'
+import type { AuthState, User } from '@/types/auth'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-
-// Action types
-export const AUTH_ACTIONS = {
+const AUTH_ACTIONS = {
   LOGIN_SUCCESS: 'LOGIN_SUCCESS',
   LOGOUT: 'LOGOUT',
   SET_LOADING: 'SET_LOADING',
 } as const
 
 type AuthAction =
-  | { type: typeof AUTH_ACTIONS.LOGIN_SUCCESS; payload: { token: string } }
+  | { type: typeof AUTH_ACTIONS.LOGIN_SUCCESS; payload: { user: User } }
   | { type: typeof AUTH_ACTIONS.LOGOUT }
   | { type: typeof AUTH_ACTIONS.SET_LOADING; payload: boolean }
 
 const AuthStateContext = createContext<AuthState | null>(null)
 const AuthDispatchContext = createContext<{
-  login: (credentials: LoginCredentials) => Promise<AuthResult>
-  register: (credentials: RegisterCredentials) => Promise<AuthResult>
-  logout: () => void
+  loginWithGoogle: () => Promise<void>
+  logout: () => Promise<void>
 } | null>(null)
 
-const getInitialState = (): AuthState => ({
-  isAuthenticated: !!localStorage.getItem('token'),
-  token: localStorage.getItem('token'),
-  isLoading: false,
+const initialState: AuthState = {
+  isAuthenticated: false,
   user: null,
-})
+  isLoading: true,
+}
 
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   switch (action.type) {
@@ -35,23 +32,30 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
       return {
         ...state,
         isAuthenticated: true,
-        token: action.payload.token,
+        user: action.payload.user,
         isLoading: false,
       }
     case AUTH_ACTIONS.LOGOUT:
       return {
         ...state,
         isAuthenticated: false,
-        token: null,
         user: null,
+        isLoading: false,
       }
     case AUTH_ACTIONS.SET_LOADING:
-      return {
-        ...state,
-        isLoading: action.payload,
-      }
+      return { ...state, isLoading: action.payload }
     default:
       return state
+  }
+}
+
+async function registerWithBackend(providerToken: string): Promise<User | null> {
+  localStorage.setItem('google_provider_token', providerToken)
+  try {
+    const user = await authApi.googleLogin()
+    return user
+  } catch {
+    return null
   }
 }
 
@@ -60,100 +64,78 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [state, dispatch] = useReducer(authReducer, getInitialState())
+  const [state, dispatch] = useReducer(authReducer, initialState)
 
-  const login = useCallback(async (credentials: LoginCredentials): Promise<AuthResult> => {
-    dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true })
+  useEffect(() => {
+    if (!supabase) {
+      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
+      return
+    }
 
-    try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
-        return {
-          success: false,
-          error: data.detail || 'Login failed',
+    // Check existing session on mount
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.provider_token) {
+        const user = await registerWithBackend(session.provider_token)
+        if (user) {
+          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
+          return
         }
       }
-
-      localStorage.setItem('token', data.access_token)
-      dispatch({
-        type: AUTH_ACTIONS.LOGIN_SUCCESS,
-        payload: { token: data.access_token },
-      })
-
-      return { success: true, error: null }
-    } catch (error) {
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Login failed',
+      // Fall back: check if we have a stored token (provider_token is only available right after OAuth)
+      const storedToken = localStorage.getItem('google_provider_token')
+      if (session && storedToken) {
+        try {
+          const user = await authApi.googleLogin()
+          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
+          return
+        } catch {
+          // token expired or invalid
+        }
       }
-    }
+      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
+    })
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.provider_token) {
+        const user = await registerWithBackend(session.provider_token)
+        if (user) {
+          dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
+          return
+        }
+      }
+      if (!session) {
+        localStorage.removeItem('google_provider_token')
+        dispatch({ type: AUTH_ACTIONS.LOGOUT })
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  const register = useCallback(
-    async (credentials: RegisterCredentials): Promise<AuthResult> => {
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true })
+  const loginWithGoogle = useCallback(async () => {
+    if (!supabase) return
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
+      },
+    })
+  }, [])
 
-      try {
-        const { confirmPassword, ...registerData } = credentials
-        const response = await fetch(`${API_URL}/api/auth/register`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(registerData),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
-          return {
-            success: false,
-            error: data.detail || 'Registration failed',
-          }
-        }
-
-        // After successful registration, automatically log in
-        return login({
-          email: registerData.email,
-          password: registerData.password,
-        })
-      } catch (error) {
-        dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false })
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Registration failed',
-        }
-      }
-    },
-    [login]
-  )
-
-  const logout = useCallback(() => {
-    localStorage.removeItem('token')
+  const logout = useCallback(async () => {
+    if (!supabase) return
+    localStorage.removeItem('google_provider_token')
+    await supabase.auth.signOut()
     dispatch({ type: AUTH_ACTIONS.LOGOUT })
   }, [])
 
-  const value = {
-    login,
-    register,
-    logout,
-  }
-
   return (
     <AuthStateContext.Provider value={state}>
-      <AuthDispatchContext.Provider value={value}>{children}</AuthDispatchContext.Provider>
+      <AuthDispatchContext.Provider value={{ loginWithGoogle, logout }}>
+        {children}
+      </AuthDispatchContext.Provider>
     </AuthStateContext.Provider>
   )
 }

@@ -4,6 +4,7 @@ import RootLayout from '../layouts/RootLayout'
 
 const Index = lazy(() => import('../pages/Index'))
 const Calendar = lazy(() => import('../pages/Calendar'))
+const Emergency = lazy(() => import('../pages/Emergency'))
 
 function PageLoader() {
   return (
@@ -31,6 +32,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoader />}>
             <Calendar />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'emergency',
+        element: (
+          <Suspense fallback={<PageLoader />}>
+            <Emergency />
           </Suspense>
         ),
       },

@@ -105,6 +105,7 @@ async def login_with_google(
 class GeneratedTask(BaseModel):
     title: str = Field(description="Short, actionable task title")
     priority: int = Field(description="1 = high, 2 = medium, 3 = low")
+    reasoning: str = Field(description="Brief explanation of why this task was prioritized at this level")
 
 class TaskList(BaseModel):
     tasks: list[GeneratedTask]
@@ -120,7 +121,10 @@ async def parse_calendar_tasks(
         return {"tasks": []}
 
     events_text = "\n".join([
-        f"- {e.get('title') or e.get('summary', 'Untitled')} (Start: {e.get('start') or e.get('start_time', '')})"
+        f"- {e.get('title') or e.get('summary', 'Untitled')} "
+        f"| Start: {e.get('start') or e.get('start_time', '')} "
+        f"| End: {e.get('end') or e.get('end_time', '')} "
+        f"| Description: {e.get('description', 'N/A')}"
         for e in events
     ])
 
@@ -129,13 +133,45 @@ async def parse_calendar_tasks(
 
     try:
         result = llm_structured.invoke(f"""
-        Given these calendar events, generate tasks to prepare for them.
-        Priority: 1=high (exams/deadlines), 2=medium (classes/meetings), 3=low.
+You are a college student productivity assistant. Given a student's upcoming calendar events,
+generate a prioritized task list for their current study session.
 
-        Events:
-        {events_text}
-        """)
-        return {"tasks": [{"title": t.title, "priority": t.priority} for t in result.tasks]}
+## Instructions
+
+**A) Transform events into actionable tasks:**
+Do NOT use raw event names as tasks. Convert them into concrete study/work actions.
+- "CS 3420 Lecture" at 2:00 PM → "Review CS 3420 lecture notes" (scheduled for a free block after the lecture)
+- "PHYS 2415 Lab" at 10:00 AM → "Complete PHYS 2415 pre-lab worksheet" (before the lab)
+- "Team Meeting" at 3:00 PM → "Prepare agenda items for team meeting"
+
+**B) Analyze schedule for downtime:**
+Look at the gaps between events. Only suggest tasks that fit in realistic free windows.
+Do not stack tasks on top of existing commitments.
+
+**C) Scan the provided events for high-importance upcoming items (exams, deadlines, presentations):**
+The events below cover the next 7 days ONLY. Within this window, look for keywords:
+"test", "quiz", "exam", "midterm", "final", "due", "deadline", "presentation", "project".
+If you find such events, generate proactive preparation tasks and prioritize them highly.
+Include how many days away the event is so the student can gauge urgency.
+Example: "CS 3420 Midterm" in 5 days → priority 1 task: "Study for CS 3420 Midterm (5 days away)"
+
+## Priority Scale
+- 1 = HIGH: Exams, deadlines, and due dates found within the 7-day event window
+- 2 = MEDIUM: Regular classes, meetings, routine preparation
+- 3 = LOW: Optional reviews, light reading, organization tasks
+
+## Output
+For each task, provide:
+- title: a short, actionable task name
+- priority: 1, 2, or 3
+- reasoning: one sentence explaining why this priority was assigned (e.g., "CS 3240 exam in 5 days")
+
+Generate 3-8 tasks. Quality over quantity.
+
+## Calendar Events
+{events_text}
+""")
+        return {"tasks": [{"title": t.title, "priority": t.priority, "reasoning": t.reasoning} for t in result.tasks]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
