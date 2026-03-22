@@ -50,10 +50,9 @@ export default function GetStarted() {
         className="text-sm text-muted-foreground mb-10 max-w-md"
         variants={activeItemVariants}
       >
-        Your personal wellness companion for focused work sessions.
-        Manage your time with smart Pomodoro timing, structured breaks,
-        and calendar integration — designed to help you stay productive
-        without burning out.
+        BurnoutBuddy is your new partner in finding a calmer, more intentional way to work. 
+        We’ll tackle your to-do list together with gentle Pomodoro pacing and breaks that actually recharge you. 
+        With BurnoutBuddy, you can feel good while working and keep burnout at bay.
       </motion.p>
 
       <motion.div
