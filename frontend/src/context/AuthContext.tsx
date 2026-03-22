@@ -26,7 +26,7 @@ const initialState: AuthState = {
   isLoading: true,
 }
 
-const AUTH_INIT_TIMEOUT_MS = 8000
+const AUTH_INIT_TIMEOUT_MS = 2000
 
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   switch (action.type) {
