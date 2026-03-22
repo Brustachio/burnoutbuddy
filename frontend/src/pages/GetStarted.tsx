@@ -1,8 +1,26 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/Button";
-import { useAuthDispatch } from "@/context/AuthContext";
+// Note: You might need to adjust `useAuth` to `useAuthState` depending on how 
+// you named the hook that provides the `user` and `isLoading` variables in your AuthContext.
+import { useAuthDispatch, useAuth } from "@/context/AuthContext";
 
 export default function GetStarted() {
   const { loginWithGoogle } = useAuthDispatch();
+  const { user, isLoading } = useAuth(); 
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // If the app has finished loading auth state and a user exists, bounce them to the dashboard
+    if (!isLoading && user) {
+      navigate("/", { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
+  // Return a blank screen while checking auth or redirecting to prevent a flash of the UI
+  if (isLoading || user) {
+    return null; 
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center bg-background">
