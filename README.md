@@ -1,256 +1,206 @@
-# FastAPI React Starter Template
+# BurnoutBuddy
 
-A modern, full-featured starter template featuring FastAPI backend and React 19 frontend with TypeScript, Tailwind CSS, and shadcn/ui components.
+**Your AI-powered study companion that keeps burnout from creeping in.**
 
-![image](frontend/public/starter.svg)
+---
 
-## Features
+## 💡 The Problem
 
-- **Backend (FastAPI)**
+It's Sunday night. Your exam is Tuesday. You've been "studying" for hours but feel like you've absorbed nothing — and now you're too wired, too anxious, and too exhausted to actually focus. Sound familiar?
 
-  - Fast and modern Python web framework
-  - PostgreSQL/SQLite database with async SQLAlchemy ORM
-  - JWT-based authentication system
-  - Role-based access control
-  - Async database operations
-  - Proper connection pooling and cleanup
-  - Environment configuration with pydantic
-  - Structured logging
-  - Health check endpoint
-  - Graceful shutdown handling
-  - Modular project structure
+Student burnout isn't just about working too hard. It's about working *wrong* — cramming everything into the last 48 hours, skipping sleep, ignoring how you feel, and having zero visibility into what's actually on your plate. By the time you notice the warning signs, you're already running on empty.
 
-- **Frontend (React 19)**
-  - Latest React features including `use` hook
-  - TypeScript for type safety and better developer experience
-  - React Router 7 for client-side routing
-  - shadcn/ui components for beautiful, accessible UI
-  - Component-based architecture
-  - Custom hooks for data fetching
-  - Modern error handling with Error Boundaries
-  - Suspense for loading states
-  - Tailwind CSS for styling
-  - Environment configuration
-  - Vite for fast development
+The result: declining grades, deteriorating health, and a cycle that compounds every semester.
 
-## Project Structure
+---
 
-```
-fastapi-react-starter/
-├── backend/
-│   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py              # FastAPI application entry
-│   │   ├── config/              # Configuration management
-│   │   │   ├── __init__.py
-│   │   │   └── config.py        # Environment settings
-│   │   ├── db/                  # Database
-│   │   │   ├── __init__.py
-│   │   │   ├── database.py      # Database connection
-│   │   │   └── models.py        # SQLAlchemy models
-│   │   ├── routes/              # API routes
-│   │   │   ├── __init__.py
-│   │   │   ├── auth.py         # Authentication endpoints
-│   │   │   └── health.py       # Health check endpoint
-│   │   ├── schemas/            # Pydantic models
-│   │   │   ├── __init__.py
-│   │   │   └── auth.py        # Authentication schemas
-│   │   ├── services/          # Business logic
-│   │   │   ├── __init__.py
-│   │   │   └── auth.py       # Authentication services
-│   │   └── utils/            # Utilities
-│   │       ├── __init__.py
-│   │       └── logger.py     # Logging configuration
-│   ├── .env                  # Environment variables
-│   └── requirements.txt      # Python dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # Reusable UI components
-│   │   │   └── ui/          # shadcn/ui components
-│   │   │       ├── button.tsx
-│   │   │       ├── card.tsx
-│   │   │       └── status-dot.tsx
-│   │   ├── features/         # Feature modules
-│   │   │   ├── auth/        # Authentication feature
-│   │   │   │   ├── LoginForm.tsx
-│   │   │   │   └── RegisterForm.tsx
-│   │   │   └── health/      # Health check feature
-│   │   │       └── HealthStatus.tsx
-│   │   ├── hooks/           # Custom React hooks
-│   │   │   ├── useAuth.ts
-│   │   │   └── useHealthStatus.ts
-│   │   ├── layouts/         # Page layouts
-│   │   │   └── MainLayout.tsx
-│   │   ├── lib/             # Utility functions and configurations
-│   │   │   └── utils.ts
-│   │   ├── routes/          # Route components and configurations
-│   │   │   └── root.tsx
-│   │   ├── types/           # TypeScript type definitions
-│   │   │   └── index.d.ts
-│   │   └── App.tsx          # Main React component
-│   ├── .env                 # Frontend environment variables
-│   └── package.json         # Node.js dependencies
-└── README.md               # Project documentation
-```
+## ✨ Our Solution
 
-## Quick Start
+BurnoutBuddy is a full-stack productivity app that fights burnout before it starts. It connects to your Google Calendar, analyzes your upcoming schedule with AI, and turns that chaos into a calm, structured study session — complete with enforced breaks, daily wellness check-ins, and a real-time burnout risk score.
 
-### Using Docker (Recommended)
+You don't have to figure out what to work on or when to stop. BurnoutBuddy does that for you.
 
-1. Clone the repository:
+---
 
-   ```bash
-   git clone https://github.com/raythurman2386/fastapi-react-starter.git
-   cd fastapi-react-starter
-   ```
+## 🏗️ How It Works
 
-2. Create environment files:
+**1. Sign in with Google**
+Land on the app and authenticate via Google OAuth. This grants BurnoutBuddy read-only access to your Google Calendar — no account creation, no passwords.
 
-   Create `.env` file in the root directory:
+**2. AI-Powered Session Kick-Off**
+The moment you hit Start, BurnoutBuddy syncs your Google Calendar events for the next 7 days. A **Gemini 2.5 Flash Lite** AI model analyzes your schedule — detecting upcoming exams, deadlines, lectures, and meetings — and generates a prioritized task list tailored to your current free windows. High-priority tasks (exams in 3 days) float to the top automatically.
 
-   ```env
-   # Database Configuration
-   DB_USER=postgres
-   DB_PASSWORD=postgres
-   DB_NAME=fastapi_db
-   ```
+**3. Work in Focused Pomodoro Cycles**
+BurnoutBuddy runs a fully customizable Pomodoro timer: configurable focus durations, short breaks, long breaks, and sessions-per-cycle. A progress bar and session dots keep you anchored. Supports **Picture-in-Picture** mode so the timer floats over any other window.
 
-3. Start the application with Docker:
+**4. Manage Your Tasks in Real Time**
+A collapsible, resizable task panel lives on the left side of your screen. Add tasks manually, drag to reorder, cycle through priority levels (high / med / low), and check items off as you go — all without leaving the timer.
 
-   ```bash
-   docker compose up --build
-   ```
+**5. Forced Check-In After Every Cycle**
+After completing a full Pomodoro cycle, the timer pauses and a **mandatory wellness check-in** appears. You rate your mood, stress level, sleep, and workload, and select how you're feeling from a set of prompts. There's no skipping it — your wellbeing is part of the workflow.
 
-   This will:
+**6. Live Burnout Risk Score**
+After each check-in, the backend calculates your **burnout risk level** (Low / Med / High) based on your recent check-in history and the density of upcoming calendar events. It surfaces contextual wellness recommendations from UVA's campus resources based on what you reported feeling.
 
-   - Start PostgreSQL database
-   - Apply migrations to a fresh database (e.g., after Docker volume removal)
-   - Start the FastAPI backend at http://localhost:8000
-   - Start the React frontend at http://localhost:5173
+**7. Emergency Support — Always One Click Away**
+If things get overwhelming, a subtle "I need help right now" button at the bottom of the timer halts the session immediately and routes you to an emergency resources page with UVA CAPS, the Crisis Text Line, the 988 Lifeline, and Student Health contacts.
 
-   The Swagger docs will be available at http://localhost:8000/docs
+---
 
-### Automated Setup Scripts
+## 🔧 Tech Stack
 
-For your convenience, this project includes automated setup scripts for both Windows and Linux/Mac:
+### Backend
+| Layer | Technology |
+|---|---|
+| Framework | FastAPI 0.116 + Uvicorn |
+| Language | Python 3.x (async throughout) |
+| ORM | SQLAlchemy 2.0 (async) + asyncpg |
+| Database | PostgreSQL |
+| Migrations | Alembic |
+| Validation | Pydantic v2 |
+| HTTP Client | httpx (async) |
+| AI / LLM | LangChain + `langchain-google-genai` (Gemini 2.5 Flash Lite) |
+| Auth | Google OAuth2 via token verification against Google's userinfo endpoint |
 
-#### Windows Setup
+### Frontend
+| Layer | Technology |
+|---|---|
+| Framework | React 19 + TypeScript |
+| Build Tool | Vite 6 |
+| Routing | React Router v7 |
+| Styling | Tailwind CSS v4 + DaisyUI |
+| Components | shadcn/ui (Radix UI primitives) |
+| Animations | Framer Motion |
+| Icons | Lucide React |
+| Auth / BaaS | Supabase JS (Google OAuth provider) |
+| State | React Context + useReducer |
 
-1. Open PowerShell as Administrator
-2. Navigate to the project directory
-3. Run the setup script:
-   ```powershell
-   .\setup.ps1
-   ```
+---
 
-This script will:
+## 🚀 Quick Start
 
-- Check for required dependencies (Docker, Docker Compose V2)
-- Install the correct version of docker recommended for the system.
-- Set up environment variables
+### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- PostgreSQL (running locally or via Docker)
+- A Supabase project with Google OAuth enabled
+- A Google Cloud project with the Calendar API enabled
+- A Google Gemini API key
 
-#### Linux/Mac Setup
-
-1. Open a terminal
-2. Navigate to the project directory
-3. Make the script executable and run it:
-   ```bash
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-
-This script performs the same setup steps as the Windows version but is adapted for Unix-based systems.
-
-### Manual Setup (Alternative)
-
-1. Backend Setup:
-
-   a. Install PostgreSQL and create a database:
-
-   ```bash
-   # macOS with Homebrew
-   brew install postgresql
-   brew services start postgresql
-
-   # Create database
-   createdb fastapi_db
-   ```
-
-   b. Create a `.env` file in the backend directory:
-
-   ```env
-   # Database Configuration
-   DB_NAME=fastapi_db
-   DB_USER=postgres  # your database user
-   DB_PASSWORD=postgres  # your database password
-   DB_HOST=localhost
-   DB_PORT=5432
-   CORS_ORIGINS=["http://localhost:5173"]
-   ENVIRONMENT=development
-   ```
-
-   c. Install Python dependencies and run migrations:
-
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   python manage.py migrate
-   uvicorn app.main:app --reload
-   ```
-
-2. Frontend Setup:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-
-### Database Management
-
-The project includes several database management commands:
+### 1. Clone the repo
 
 ```bash
-# Generate new migrations
-python manage.py makemigrations "description of changes"
-
-# Apply pending migrations
-python manage.py migrate
-
-# Apply all migrations to a (presumably) fresh database (runs 'alembic upgrade head')
-python manage.py reset_db
-
-# Check migration status
-python manage.py db-status
-
-# Rollback last migration
-python manage.py downgrade
+git clone https://github.com/Brustachio/burnoutbuddy.git
+cd burnoutbuddy
 ```
 
-If you encounter database errors and need a full reset:
+### 2. Backend setup
 
-1. Stop all running services: `docker compose down`
-2. Remove the PostgreSQL Docker volume (e.g., `docker volume rm fastapi-react-starter_postgres_data` - verify volume name with `docker volume ls`)
-3. Restart services: `docker compose up -d --build`
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-### Troubleshooting
+Create a `.env` file in `backend/`:
 
-1. Backend Status shows "error":
+```env
+APP_NAME=BurnoutBuddy
+APP_VERSION=1.0.0
+APP_DESCRIPTION=Student burnout prevention app
 
-   - Ensure PostgreSQL is running
-   - Check database credentials in `.env`
-   - For a full reset, see the 'If you encounter database errors' section above (involves Docker volume removal).
-   - Check backend logs for specific error messages
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/burnoutbuddy
+CORS_ORIGINS=["http://localhost:5173"]
+ENVIRONMENT=development
 
-2. User Registration fails:
-   - Ensure the database is properly initialized
-   - Check if backend is running and accessible
-   - Verify CORS settings in backend `.env`
-   - Check browser console for specific error messages
+GOOGLE_API_KEY=your_gemini_api_key_here
+```
 
-## Contributing
+Run migrations and start the server:
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+```bash
+python manage.py migrate
+uvicorn app.main:app --reload
+```
 
-## License
+The API will be available at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### 3. Frontend setup
+
+```bash
+cd frontend
+npm install
+```
+
+Create a `.env` file in `frontend/`:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_API_URL=http://localhost:8000
+```
+
+Start the dev server:
+
+```bash
+npm run dev
+```
+
+The app will be running at `http://localhost:5173`.
+
+### 4. Supabase Google OAuth
+
+In your Supabase dashboard, enable the Google provider under **Authentication → Providers**. Set the authorized redirect URI to `http://localhost:5173`. Ensure the Google Cloud OAuth client has `https://www.googleapis.com/auth/calendar.readonly` in its allowed scopes.
+
+---
+
+## 🎯 Features
+
+### For Students
+- **Google Sign-In** — one click, no passwords, instant calendar access
+- **AI Task Generation** — Gemini analyzes your next 7 days and builds a prioritized task list before every session
+- **Pomodoro Timer** — customizable focus / short break / long break durations with auto-cycle support
+- **Picture-in-Picture** — float the timer over any window while you work
+- **Task Panel** — add, prioritize, reorder (drag-and-drop), and complete tasks in real time
+- **Daily Check-In** — rate mood, stress, sleep, and workload after every Pomodoro cycle
+- **Burnout Risk Score** — live Low / Med / High risk assessment based on recent check-ins and calendar density
+- **Wellness Recommendations** — contextual UVA campus resource suggestions based on how you're feeling
+- **Emergency Page** — instant access to CAPS, Crisis Text Line, 988 Lifeline, and Student Health
+- **Calendar View** — 7-day Google Calendar grid with auto-sync on page load
+- **Dark / Light Mode** — system-aware theme with manual toggle
+
+### System Features
+- Async FastAPI backend with per-user Google Calendar sync locks (prevents race conditions)
+- PostgreSQL upsert for calendar events — syncs cleanly without duplicates
+- Burnout risk algorithm weighing average stress, average sleep, and upcoming event density
+- Structured LLM output via LangChain — AI tasks are typed and validated before reaching the UI
+- Session telemetry — every focus block and break is timestamped and persisted to the database
+- Forced check-in gate — timer cannot resume until wellness data is submitted
+- Supabase auth state listener — seamless token refresh and logout propagation
+
+---
+
+## 🏆 Accomplishments
+
+- Built a complete end-to-end AI workflow: Google Calendar → LLM analysis → structured task output → live UI, all within a single session start
+- Implemented a clinically-informed burnout risk model that factors in recency-weighted stress, sleep deficit, and forward-looking schedule density
+- Designed a "forced check-in" UX pattern that makes wellness data collection feel like a natural part of the workflow rather than an interruption
+- Shipped Picture-in-Picture timer support using the browser's native Document PiP API with a full React portal
+- Handled multi-calendar Google sync with per-user async locks and idempotent upserts across all of a user's calendars simultaneously
+
+---
+
+## 📚 What We Learned
+
+- **LangChain structured output** (`with_structured_output`) paired with Pydantic models is significantly more reliable than prompt-engineering JSON from a raw LLM — it eliminated an entire class of parsing bugs
+- **Supabase OAuth + FastAPI** requires careful token handoff: Supabase issues the Google provider token client-side, which must then be forwarded to the backend as a header for server-side identity verification
+- The **forced check-in pattern** taught us that friction can be a feature — making wellness data collection mandatory rather than optional was the only way to gather enough signal to make the risk model meaningful
+- **Async SQLAlchemy** with PostgreSQL and per-user locks made calendar sync safe under concurrent requests, but required careful session lifecycle management to avoid connection leaks
+- Building for a real university audience (UVA) meant our emergency resources and wellness recommendations had to be specific and actionable — generic advice gets ignored
+
+---
+
+## 📄 License
+
+MIT
