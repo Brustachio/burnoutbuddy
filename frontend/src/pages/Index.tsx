@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { PomodoroTimer } from "@/components/PomodoroTimer";
 import { TaskPanel } from "@/components/TaskPanel";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -7,6 +8,11 @@ import { SessionProvider } from "@/context/SessionContext";
 import { CalendarDays, Settings as SettingsIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useNavigate } from "react-router-dom";
+import {
+  containerVariants,
+  itemVariants,
+  reducedMotionItemVariants,
+} from "@/lib/animations";
 
 export interface TimerSettings {
   workMinutes: number;
@@ -39,6 +45,11 @@ function loadSettings(): TimerSettings {
 const Index = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<TimerSettings>(() => loadSettings());
+  const shouldReduceMotion = useReducedMotion();
+
+  const activeItemVariants = shouldReduceMotion
+    ? reducedMotionItemVariants
+    : itemVariants;
 
   const handleSaveSettings = (s: TimerSettings) => {
     setSettings(s);
@@ -49,18 +60,32 @@ const Index = () => {
 
   return (
     <SessionProvider sessionsBeforeLongBreak={settings.sessionsBeforeLongBreak}>
-      <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
+      <motion.div
+        className="relative min-h-screen bg-background text-foreground overflow-hidden"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {/* Full-screen timer */}
-        <PomodoroTimer settings={settings} />
+        <motion.div variants={activeItemVariants}>
+          <PomodoroTimer settings={settings} />
+        </motion.div>
 
         {/* Bottom-left task panel */}
-        <TaskPanel />
+        <motion.div variants={activeItemVariants}>
+          <TaskPanel />
+        </motion.div>
 
-        {/* Daily check-in — anchored to the right, above the action buttons */}
-        <DailyCheckIn />
+        {/* Daily check-in */}
+        <motion.div variants={activeItemVariants}>
+          <DailyCheckIn />
+        </motion.div>
 
         {/* Bottom-center quick actions */}
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+        <motion.div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2"
+          variants={activeItemVariants}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -80,7 +105,7 @@ const Index = () => {
           >
             <SettingsIcon className="h-5 w-5 text-muted-foreground" />
           </Button>
-        </div>
+        </motion.div>
 
         {/* Settings dialog */}
         <SettingsDialog
@@ -90,7 +115,7 @@ const Index = () => {
           settings={settings}
           onSave={handleSaveSettings}
         />
-      </div>
+      </motion.div>
     </SessionProvider>
   );
 };
