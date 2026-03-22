@@ -4,7 +4,7 @@
 
 ---
 
-## 👥 Contributors
+## Contributors
 - Albert Yorn
 - Lawson Pham
 - Ryan Fang
@@ -12,17 +12,17 @@
   
 ---
 
-## 💡 The Problem
+## The Problem
 
-It's Sunday night. Your exam is Tuesday. You've been "studying" for hours but feel like you've absorbed nothing — and now you're too wired, too anxious, and too exhausted to actually focus. Sound familiar?
+It's Sunday night. Your exam is Tuesday. You've been "studying" for hours but feel like you've absorbed nothing, and now you're too wired, too anxious, and too exhausted to actually focus. Sound familiar?
 
-Student burnout isn't just about working too hard. It's about working *wrong* — cramming everything into the last 48 hours, skipping sleep, ignoring how you feel, and having zero visibility into what's actually on your plate. By the time you notice the warning signs, you're already running on empty.
+Student burnout isn't just about working too hard. It's about working *wrong*, cramming everything into the last 48 hours, skipping sleep, ignoring how you feel, and having zero visibility into what's actually on your plate. By the time you notice the warning signs, you're already running on empty.
 
 The result: declining grades, deteriorating health, and a cycle that compounds every semester.
 
 ---
 
-## ✨ Our Solution
+## Our Solution
 
 BurnoutBuddy implements a "Wellness-First" architecture that treats a student's capacity as a finite resource. The platform acts as an intermediary between a student's external commitments and their immediate focus sessions by:
 
@@ -36,7 +36,7 @@ Providing Institutional Support: Mapping reported distress to specific Universit
 
 ---
 
-## 🏗️ How It Works
+## How It Works
 
 **1. Sign in with Google**
 Users authenticate via Google OAuth managed by Supabase. This establishes a secure link to the Google Calendar API for real-time schedule retrieval.
@@ -61,7 +61,7 @@ If things get overwhelming, a subtle "I need help right now" button at the botto
 
 ---
 
-## 🔧 Tech Stack
+## Tech Stack
 
 ### Backend
 | Layer | Technology |
@@ -91,7 +91,7 @@ If things get overwhelming, a subtle "I need help right now" button at the botto
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
@@ -168,7 +168,7 @@ In your Supabase dashboard, enable the Google provider under **Authentication �
 
 ---
 
-## 🎯 Features
+## Features
 
 ### For Students
 - **Google Sign-In** — one click, no passwords, instant calendar access
@@ -194,13 +194,13 @@ In your Supabase dashboard, enable the Google provider under **Authentication �
 
 ---
 
-## 📚 What We Learned
+## What We Learned
 
-- **LangChain structured output** (`with_structured_output`) paired with Pydantic models is significantly more reliable than prompt-engineering JSON from a raw LLM — it eliminated an entire class of parsing bugs
+- **LangChain structured output** (`with_structured_output`) paired with Pydantic models is significantly more reliable than prompt-engineering JSON from a raw LLM, it eliminated an entire class of parsing bugs
 - **Supabase OAuth + FastAPI** requires careful token handoff: Supabase issues the Google provider token client-side, which must then be forwarded to the backend as a header for server-side identity verification
-- The **forced check-in pattern** taught us that friction can be a feature — making wellness data collection mandatory rather than optional was the only way to gather enough signal to make the risk model meaningful
+- The **forced check-in pattern** taught us that friction can be a feature, making wellness data collection mandatory rather than optional was the only way to gather enough signal to make the risk model meaningful
 - **Async SQLAlchemy** with PostgreSQL and per-user locks made calendar sync safe under concurrent requests, but required careful session lifecycle management to avoid connection leaks
-- Building for a real university audience (UVA) meant our emergency resources and wellness recommendations had to be specific and actionable — generic advice gets ignored
+- Building for a real university audience (UVA) meant our emergency resources and wellness recommendations had to be specific and actionable, generic advice gets ignored
 
 ---
 
