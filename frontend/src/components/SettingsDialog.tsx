@@ -7,7 +7,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
-import { Timer, User, Bell, Palette, Activity } from "lucide-react";
+import { Timer, User, Palette, Activity } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MoonIcon, SunIcon } from "lucide-react";
 import type { TimerSettings } from "@/pages/Index";
@@ -28,7 +28,6 @@ interface Props {
 const sections = [
   { id: "timer", label: "Pomodoro Timer", icon: Timer },
   { id: "account", label: "Account", icon: User },
-  { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "system", label: "System", icon: Activity },
 ] as const;
@@ -330,17 +329,6 @@ export const SettingsDialog = ({
 
             {active === "account" && (
               <AccountSection />
-            )}
-
-            {active === "notifications" && (
-              <div className="space-y-4">
-                <h3 className="text-sm text-muted-foreground">
-                  Notifications
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Notification preferences coming soon.
-                </p>
-              </div>
             )}
 
             {active === "appearance" && <AppearanceSection />}
