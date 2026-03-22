@@ -1,7 +1,15 @@
 # BurnoutBuddy
 
-**Your AI-powered study companion that keeps burnout from creeping in.**
+**A study buddy that keeps burnout at bay.**
 
+---
+
+## 👥 Contributors
+- Albert Yorn
+- Lawson Pham
+- Ryan Fang
+- Ethan Chien
+  
 ---
 
 ## 💡 The Problem
@@ -16,19 +24,25 @@ The result: declining grades, deteriorating health, and a cycle that compounds e
 
 ## ✨ Our Solution
 
-BurnoutBuddy is a full-stack productivity app that fights burnout before it starts. It connects to your Google Calendar, analyzes your upcoming schedule with AI, and turns that chaos into a calm, structured study session — complete with enforced breaks, daily wellness check-ins, and a real-time burnout risk score.
+BurnoutBuddy implements a "Wellness-First" architecture that treats a student's capacity as a finite resource. The platform acts as an intermediary between a student's external commitments and their immediate focus sessions by:
 
-You don't have to figure out what to work on or when to stop. BurnoutBuddy does that for you.
+Quantifying Risk: Calculating a real-time Burnout Risk Score based on stress, sleep, and schedule density.
+
+Automating Prioritization: Utilizing Gemini 2.5 Flash to transform raw calendar data into structured, manageable tasks.
+
+Enforcing Recovery: Implementing mandatory wellness gates that prevent session resumption until health data is recorded.
+
+Providing Institutional Support: Mapping reported distress to specific University of Virginia (UVA) wellness resources.
 
 ---
 
 ## 🏗️ How It Works
 
 **1. Sign in with Google**
-Land on the app and authenticate via Google OAuth. This grants BurnoutBuddy read-only access to your Google Calendar — no account creation, no passwords.
+Users authenticate via Google OAuth managed by Supabase. This establishes a secure link to the Google Calendar API for real-time schedule retrieval.
 
-**2. AI-Powered Session Kick-Off**
-The moment you hit Start, BurnoutBuddy syncs your Google Calendar events for the next 7 days. A **Gemini 2.5 Flash Lite** AI model analyzes your schedule — detecting upcoming exams, deadlines, lectures, and meetings — and generates a prioritized task list tailored to your current free windows. High-priority tasks (exams in 3 days) float to the top automatically.
+**2. AI-Powered Session Analysis**
+The moment you hit Start, the FastAPI backend fetches the user's upcoming 7-day schedule. A LangChain-driven LLM analyzes event weight and proximity to generate a prioritized task list that aims to spread out work and prevent burnout for students.
 
 **3. Work in Focused Pomodoro Cycles**
 BurnoutBuddy runs a fully customizable Pomodoro timer: configurable focus durations, short breaks, long breaks, and sessions-per-cycle. A progress bar and session dots keep you anchored. Supports **Picture-in-Picture** mode so the timer floats over any other window.
@@ -55,12 +69,12 @@ If things get overwhelming, a subtle "I need help right now" button at the botto
 | Framework | FastAPI 0.116 + Uvicorn |
 | Language | Python 3.x (async throughout) |
 | ORM | SQLAlchemy 2.0 (async) + asyncpg |
-| Database | PostgreSQL |
+| Database | PostgreSQL (hosted via Supabase) with SQLAlchemy 2.0 and asyncpg |
 | Migrations | Alembic |
 | Validation | Pydantic v2 |
 | HTTP Client | httpx (async) |
 | AI / LLM | LangChain + `langchain-google-genai` (Gemini 2.5 Flash Lite) |
-| Auth | Google OAuth2 via token verification against Google's userinfo endpoint |
+| Auth | Supabase Auth (Google OAuth2 ) |
 
 ### Frontend
 | Layer | Technology |
@@ -82,7 +96,6 @@ If things get overwhelming, a subtle "I need help right now" button at the botto
 ### Prerequisites
 - Node.js 18+
 - Python 3.10+
-- PostgreSQL (running locally or via Docker)
 - A Supabase project with Google OAuth enabled
 - A Google Cloud project with the Calendar API enabled
 - A Google Gemini API key
@@ -181,16 +194,6 @@ In your Supabase dashboard, enable the Google provider under **Authentication �
 
 ---
 
-## 🏆 Accomplishments
-
-- Built a complete end-to-end AI workflow: Google Calendar → LLM analysis → structured task output → live UI, all within a single session start
-- Implemented a clinically-informed burnout risk model that factors in recency-weighted stress, sleep deficit, and forward-looking schedule density
-- Designed a "forced check-in" UX pattern that makes wellness data collection feel like a natural part of the workflow rather than an interruption
-- Shipped Picture-in-Picture timer support using the browser's native Document PiP API with a full React portal
-- Handled multi-calendar Google sync with per-user async locks and idempotent upserts across all of a user's calendars simultaneously
-
----
-
 ## 📚 What We Learned
 
 - **LangChain structured output** (`with_structured_output`) paired with Pydantic models is significantly more reliable than prompt-engineering JSON from a raw LLM — it eliminated an entire class of parsing bugs
@@ -201,6 +204,5 @@ In your Supabase dashboard, enable the Google provider under **Authentication �
 
 ---
 
-## 📄 License
-
-MIT
+## 📄 Acknowledgements
+- This project was developed using a foundational boilerplate template. We acknowledge the following sources for the initial repository structure and core infrastructure: https://github.com/raythurman2386/fastapi-react-starter 
