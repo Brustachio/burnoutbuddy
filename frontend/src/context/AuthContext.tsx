@@ -26,6 +26,8 @@ const initialState: AuthState = {
   isLoading: true,
 }
 
+const AUTH_INIT_TIMEOUT_MS = 8000
+
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   switch (action.type) {
     case AUTH_ACTIONS.LOGIN_SUCCESS:
@@ -49,10 +51,42 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error('Auth request timed out'))
+    }, timeoutMs)
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      })
+      .catch((error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
+function getLocalUserFromSession(session: { user?: { id: string; email?: string | null; user_metadata?: unknown } }): User {
+  const metadata = session.user?.user_metadata as Record<string, unknown> | undefined
+  const fullName =
+    (typeof metadata?.full_name === 'string' && metadata.full_name) ||
+    (typeof metadata?.name === 'string' && metadata.name) ||
+    null
+
+  return {
+    id: session.user?.id || 'google-user',
+    email: session.user?.email || '',
+    full_name: fullName,
+  }
+}
+
 async function registerWithBackend(providerToken: string): Promise<User | null> {
   localStorage.setItem('google_provider_token', providerToken)
   try {
-    const user = await authApi.googleLogin()
+    const user = await withTimeout(authApi.googleLogin(), AUTH_INIT_TIMEOUT_MS)
     return user
   } catch {
     return null
@@ -97,6 +131,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
             return
           }
 
+          if (session?.user) {
+            clearHashFragment()
+            dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user: getLocalUserFromSession(session) } })
+            return
+          }
+
           localStorage.removeItem('google_provider_token')
         }
 
@@ -127,6 +167,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user } })
           return
         }
+
+        clearHashFragment()
+        dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: { user: getLocalUserFromSession(session) } })
+        return
       }
 
       // If we can't resolve a user from session, ensure app exits protected state
