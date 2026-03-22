@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,41 @@ export const TaskPanel = () => {
         x.id === id ? { ...x, priority: x.priority >= 3 ? 1 : x.priority + 1 } : x
       )
     );
+
+  const syncFromCalendar = async () => {
+    const raw = localStorage.getItem("burnoutbuddy_google_calendar_events_v1");
+    if (!raw) return;
+    const events = JSON.parse(raw);
+    if (!events.length) return;
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/ai/parse-calendar-tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ events }),
+      });
+      const data = await res.json();
+      const newTasks = data.tasks.map((t: { title: string; priority: number }) => ({
+        id: crypto.randomUUID(),
+        title: t.title,
+        done: false,
+        priority: t.priority,
+      }));
+      setTasks(newTasks);
+    } catch (e) {
+      console.error("Failed to generate tasks", e);
+    }
+  };
+
+  const hasSynced = useRef(false);
+
+  useEffect(() => {
+    const lastSynced = localStorage.getItem("burnoutbuddy_google_calendar_events_synced_at_v1");
+    if (lastSynced && !hasSynced.current) {
+      hasSynced.current = true;
+      syncFromCalendar();
+    }
+  }, []);
 
   // Drag-to-reorder
   const dragItem = useRef<number | null>(null);

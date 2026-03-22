@@ -101,6 +101,44 @@ async def login_with_google(
     return user
 
 
+class GeneratedTask(BaseModel):
+    title: str = Field(description="Short, actionable task title")
+    priority: int = Field(description="1 = high, 2 = medium, 3 = low")
+
+class TaskList(BaseModel):
+    tasks: list[GeneratedTask]
+
+#AI PARSER VERY IMPORTANT DO NOT DELETE
+@router.post("/ai/parse-calendar-tasks")
+async def parse_calendar_tasks(
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    events = payload.get("events", [])
+    if not events:
+        return {"tasks": []}
+
+    events_text = "\n".join([
+        f"- {e.get('title') or e.get('summary', 'Untitled')} (Start: {e.get('start') or e.get('start_time', '')})"
+        for e in events
+    ])
+
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0.2)
+    llm_structured = llm.with_structured_output(TaskList)
+
+    try:
+        result = llm_structured.invoke(f"""
+        Given these calendar events, generate tasks to prepare for them.
+        Priority: 1=high (exams/deadlines), 2=medium (classes/meetings), 3=low.
+
+        Events:
+        {events_text}
+        """)
+        return {"tasks": [{"title": t.title, "priority": t.priority} for t in result.tasks]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def parse_google_event(raw: dict) -> dict:
     start = raw.get("start", {})
     end = raw.get("end", {})
@@ -211,86 +249,11 @@ async def get_google_calendar_events(
         await db.commit()
         return {"events": events}
 
-
-# --- LANGCHAIN AI PLANNER (GEMINI 2.5 FLASH) ---
-class GeneratedTask(BaseModel):
-    title: str = Field(description="Name of the specific study task")
-    course: str = Field(description="Associated course name, or 'General'", default="General")
-    due_date: datetime = Field(description="When this task should be completed by")
-    priority: str = Field(description="Must be 'Low', 'Med', or 'High'")
-    estimated_pomodoros: int = Field(description="Number of 25-minute blocks needed (integer)")
-
-
-class TaskList(BaseModel):
-    tasks: list[GeneratedTask]
-
-
-@router.post("/ai/plan-week", response_model=AIPlanResponse)
-async def generate_ai_plan(
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    now = datetime.now()
-    seven_days_ahead = now + timedelta(days=7)
-    events_stmt = select(Event).where(
-        and_(
-            Event.user_id == user.id,
-            Event.start_time >= now,
-            Event.start_time <= seven_days_ahead,
-        )
-    )
-    events_result = await db.execute(events_stmt)
-    upcoming_events = events_result.scalars().all()
-
-    if not upcoming_events:
-        return AIPlanResponse(message="No upcoming events found. Sync calendar first.", tasks_generated=0)
-
-    events_text = "\n".join(
-        [f"- {e.title} (Starts: {e.start_time}, Ends: {e.end_time})" for e in upcoming_events]
-    )
-
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
-    llm_with_structured_output = llm.with_structured_output(TaskList)
-
-    prompt = f"""
-    You are an intelligent study planner designed to prevent burnout.
-    The user has the following calendar events scheduled over the next 7 days:
-
-    {events_text}
-
-    Analyze these events. If you see exams, project deadlines, or classes, generate actionable study tasks to help the user prepare.
-    Break large tasks into smaller ones. Assign 'estimated_pomodoros' (25-min study blocks) for each task.
-    Do not schedule tasks during the exact times of their calendar events.
-    """
-
-    try:
-        result = llm_with_structured_output.invoke(prompt)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gemini generation failed: {str(e)}")
-
-    saved_tasks_count = 0
-    if hasattr(result, "tasks") and result.tasks:
-        for t in result.tasks:
-            db_task = Task(
-                user_id=user.id,
-                title=t.title,
-                course=t.course,
-                due_date=t.due_date,
-                priority=t.priority,
-                estimated_pomodoros=t.estimated_pomodoros,
-                is_completed=0,
-            )
-            db.add(db_task)
-            saved_tasks_count += 1
-        await db.commit()
-
-    return AIPlanResponse(
-        message=f"Successfully generated {saved_tasks_count} study tasks with Gemini!",
-        tasks_generated=saved_tasks_count,
-    )
-
-
-# POST /checkins endpoint
+ 
+# ---------------------------------------------------------------------------
+# Check-ins
+# ---------------------------------------------------------------------------
+ 
 @router.post("/checkins", response_model=DailyCheckinResponse)
 async def create_checkin(
     checkin: DailyCheckinCreate,
@@ -306,9 +269,12 @@ async def create_checkin(
     await db.commit()
     await db.refresh(db_checkin)
     return db_checkin
-
-
-# POST /sessions endpoint
+ 
+ 
+# ---------------------------------------------------------------------------
+# Pomodoro sessions
+# ---------------------------------------------------------------------------
+ 
 @router.post("/sessions", response_model=PomodoroSessionResponse)
 async def create_session(
     session: PomodoroSessionCreate,
@@ -323,22 +289,25 @@ async def create_session(
     await db.commit()
     await db.refresh(db_session)
     return db_session
-
-
-# GET /risk-score endpoint
+ 
+ 
+# ---------------------------------------------------------------------------
+# Risk score
+# ---------------------------------------------------------------------------
+ 
 @router.get("/risk-score", response_model=RiskScoreResponse)
 async def get_risk_score(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     three_days_ago = datetime.now() - timedelta(days=3)
-
+ 
     checkins_stmt = select(DailyCheckin).where(
         and_(DailyCheckin.user_id == user.id, DailyCheckin.date >= three_days_ago)
     )
     checkins_result = await db.execute(checkins_stmt)
     recent_checkins = checkins_result.scalars().all()
-
+ 
     seven_days_ahead = datetime.now() + timedelta(days=7)
     events_stmt = select(Event).where(
         and_(
@@ -349,19 +318,20 @@ async def get_risk_score(
     )
     events_result = await db.execute(events_stmt)
     upcoming_events = events_result.scalars().all()
-
+ 
     avg_stress = sum(c.stress_level for c in recent_checkins) / len(recent_checkins) if recent_checkins else 0
     avg_sleep = sum(c.sleep_hours for c in recent_checkins) / len(recent_checkins) if recent_checkins else 8
     event_density = len(upcoming_events)
-
+ 
     if avg_stress >= 8 or (avg_sleep < 5 and event_density >= 4):
         risk_level = "High"
     elif avg_stress >= 5 or event_density >= 3:
         risk_level = "Med"
     else:
         risk_level = "Low"
-
+ 
     return RiskScoreResponse(
         risk_level=risk_level,
         details=f"Calculated using {len(recent_checkins)} recent check-ins and {event_density} upcoming events.",
     )
+ 

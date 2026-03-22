@@ -30,21 +30,6 @@ class DailyCheckinResponse(DailyCheckinCreate):
     class Config:
         from_attributes = True
 
-# --- TASKS ---
-class TaskCreate(BaseModel):
-    title: str
-    course: Optional[str] = None
-    due_date: Optional[datetime] = None
-    priority: str
-    estimated_pomodoros: int
-
-class TaskResponse(TaskCreate):
-    id: int
-    user_id: str
-    is_completed: int
-    class Config:
-        from_attributes = True
-
 # --- POMODORO SESSIONS ---
 class PomodoroSessionCreate(BaseModel):
     task_id: Optional[int] = None  # Added task_id foreign key

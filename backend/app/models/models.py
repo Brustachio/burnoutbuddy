@@ -40,15 +40,12 @@ class Event(Base):
 
 class Task(Base):
     __tablename__ = "tasks"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(String, ForeignKey("users.id"))
     title = Column(String)
-    course = Column(String, nullable=True)
-    due_date = Column(DateTime, nullable=True)
-    priority = Column(String) # e.g., 'Low', 'Med', 'High'
-    estimated_pomodoros = Column(Integer)
-    is_completed = Column(Integer, default=0) # 0 for false, 1 for true
+    done = Column(Integer, default=0)      # 0=incomplete, 1=done
+    priority = Column(Integer, default=2)  # 1=high, 2=med, 3=low
 
 class PomodoroSession(Base):
     __tablename__ = "pomodoro_sessions"
