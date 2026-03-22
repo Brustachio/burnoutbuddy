@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
-import { hasSupabaseConfig, supabase, supabaseConfigError } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import { calendarApi } from '@/services/api'
 
-const OAUTH_REDIRECT_TO = `${window.location.origin}/calendar`
 const CALENDAR_CACHE_KEY = 'burnoutbuddy_google_calendar_events_v1'
 const CALENDAR_CACHE_TIME_KEY = 'burnoutbuddy_google_calendar_events_synced_at_v1'
 
@@ -37,15 +36,6 @@ function writeCachedEvents(nextEvents: CalendarEvent[]): void {
     window.localStorage.setItem(CALENDAR_CACHE_TIME_KEY, new Date().toISOString())
   } catch {
     // If localStorage fails (privacy mode/quota), keep app behavior functional.
-  }
-}
-
-function clearCachedEvents(): void {
-  try {
-    window.localStorage.removeItem(CALENDAR_CACHE_KEY)
-    window.localStorage.removeItem(CALENDAR_CACHE_TIME_KEY)
-  } catch {
-    // Best-effort cache cleanup.
   }
 }
 
@@ -95,7 +85,6 @@ function isAllDayEvent(event: CalendarEvent, start: Date): boolean {
 }
 
 export default function CalendarPage() {
-  const [hasTriedGoogleLogin, setHasTriedGoogleLogin] = useState(false)
   const [isGoogleLinked, setIsGoogleLinked] = useState(false)
   const [events, setEvents] = useState<CalendarEvent[]>(() => readCachedEvents())
   const [status, setStatus] = useState<string | null>(null)
@@ -174,9 +163,6 @@ export default function CalendarPage() {
         data: { session },
       } = await supabaseClient.auth.getSession()
       setIsGoogleLinked(!!session)
-      if (session) {
-        setHasTriedGoogleLogin(true)
-      }
     }
 
     initializeGoogleSession()
@@ -186,7 +172,6 @@ export default function CalendarPage() {
     } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       setIsGoogleLinked(!!session)
       if (session) {
-        setHasTriedGoogleLogin(true)
         if (session.provider_token) {
           localStorage.setItem('google_provider_token', session.provider_token)
         }
@@ -195,55 +180,6 @@ export default function CalendarPage() {
 
     return () => subscription.unsubscribe()
   }, [])
-
-  const connectGoogle = async () => {
-    if (!supabase) {
-      setError(supabaseConfigError || 'Supabase is not configured.')
-      return
-    }
-
-    setHasTriedGoogleLogin(true)
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: OAUTH_REDIRECT_TO,
-        scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
-      },
-    })
-
-    if (error) {
-      const rawMessage = error.message || ''
-      if (rawMessage.includes('Unsupported provider') || rawMessage.includes('provider is not enabled')) {
-        setError(
-          'Supabase Google provider is not enabled. Enable Google in Supabase Auth Providers and set Google Cloud redirect URI to https://cewjshcnzejduanlxtjf.supabase.co/auth/v1/callback.'
-        )
-      } else {
-        setError(rawMessage)
-      }
-    }
-  }
-
-  const logoutGoogle = async () => {
-    if (!supabase) {
-      setError(supabaseConfigError || 'Supabase is not configured.')
-      return
-    }
-
-    const { error: logoutError } = await supabase.auth.signOut()
-    if (logoutError) {
-      setError(logoutError.message || 'Failed to log out.')
-      return
-    }
-
-    setIsGoogleLinked(false)
-    setHasTriedGoogleLogin(false)
-    setHasAutoSyncedAfterLink(false)
-    setEvents([])
-    clearCachedEvents()
-    setError(null)
-    setStatus('Logged out of Google Calendar.')
-  }
 
   const syncFromGoogle = useCallback(async () => {
     if (!isGoogleLinked) {
@@ -288,9 +224,7 @@ export default function CalendarPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-medium">Calendar Integration</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isGoogleLinked
-                ? 'Your Google calendar syncs automatically when you open this page.'
-                : 'Sign in with Google to load your calendar directly.'}
+              Your Google calendar syncs automatically when you open this page.
             </p>
           </div>
           <Button
@@ -303,58 +237,6 @@ export default function CalendarPage() {
             </Link>
           </Button>
         </div>
-
-        <section className="rounded-md border border-border bg-card p-5">
-          <div className="mb-4 space-y-1">
-            <h2 className="text-xs text-muted-foreground">
-              {isGoogleLinked ? 'Calendar Sync' : 'Login'}
-            </h2>
-            {!isGoogleLinked && (
-              <p className="text-sm text-muted-foreground">
-                Start here first. Sign in with Google to load your events.
-              </p>
-            )}
-          </div>
-
-          {!hasSupabaseConfig && (
-            <div className="mb-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {supabaseConfigError}
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {!isGoogleLinked && (
-              <Button
-                onClick={connectGoogle}
-                disabled={!hasSupabaseConfig}
-                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-              >
-                Login With Google (Supabase)
-              </Button>
-            )}
-
-            {isGoogleLinked && (
-              <Button
-                variant="outline"
-                onClick={logoutGoogle}
-                className="w-full rounded-full font-mono text-xs uppercase tracking-widest"
-              >
-                Logout of Google Calendar
-              </Button>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Google Calendar Status: {isGoogleLinked ? 'Linked' : 'Unlinked'}
-            </p>
-
-            {!isGoogleLinked && hasTriedGoogleLogin && (
-              <p className="text-xs text-muted-foreground">
-                If you just completed Google login, your calendar updates automatically.
-              </p>
-            )}
-
-          </div>
-        </section>
 
         {(status || error) && (
           <div
@@ -419,9 +301,7 @@ export default function CalendarPage() {
 
           {events.length === 0 && (
             <p className="mt-4 text-xs text-muted-foreground">
-              {isGoogleLinked
-                ? 'No Google events found for the next 7 days.'
-                : 'No Google events loaded yet. Sign in with Google and wait a moment for automatic sync.'}
+              No Google events found for the next 7 days.
             </p>
           )}
 

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/Button";
 import { Timer, User, Bell, Palette, Activity } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MoonIcon, SunIcon } from "lucide-react";
 import type { TimerSettings } from "@/pages/Index";
 import { useAppState, useAppDispatch, setTheme } from "@/context/AppContext";
@@ -72,7 +73,7 @@ function AppearanceSection() {
 
 // ── Account tab ───────────────────────────────────────────────────────────────
 
-function AccountSection({ onClose }: { onClose: () => void }) {
+function AccountSection() {
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [googleName, setGoogleName] = useState<string | null>(null);
   const [googleEmail, setGoogleEmail] = useState<string | null>(null);
@@ -123,32 +124,6 @@ function AccountSection({ onClose }: { onClose: () => void }) {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const handleGoogleLogin = async () => {
-    if (!supabase) {
-      setError(supabaseConfigError || "Supabase is not configured.");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-        scopes: "openid email profile https://www.googleapis.com/auth/calendar.readonly",
-      },
-    });
-
-    if (oauthError) {
-      setError(oauthError.message || "Google login failed.");
-      setIsLoading(false);
-      return;
-    }
-
-    onClose();
-  };
 
   const handleGoogleLogout = async () => {
     if (!supabase) {
@@ -207,13 +182,13 @@ function AccountSection({ onClose }: { onClose: () => void }) {
             {isLoading ? "Logging out..." : "Log out of Google"}
           </Button>
         ) : (
-          <Button
-            onClick={handleGoogleLogin}
-            disabled={isLoading || !hasSupabaseConfig}
-            className="w-full rounded-md text-xs"
-          >
-            {isLoading ? "Connecting..." : "Login With Google"}
-          </Button>
+          <p className="text-[10px] text-muted-foreground">
+            Sign in from the{" "}
+            <a href="/" className="text-primary hover:underline">
+              Get Started
+            </a>{" "}
+            page to connect your Google account.
+          </p>
         )}
       </div>
 
@@ -274,7 +249,7 @@ export const SettingsDialog = ({
     onOpenChange(false);
   };
 
-  const timerFields: { key: keyof TimerSettings; label: string }[] = [
+  const timerFields: { key: keyof Pick<TimerSettings, "workMinutes" | "breakMinutes" | "longBreakMinutes" | "sessionsBeforeLongBreak">; label: string }[] = [
     { key: "workMinutes", label: "Work Duration (min)" },
     { key: "breakMinutes", label: "Break Duration (min)" },
     { key: "longBreakMinutes", label: "Long Break (min)" },
@@ -328,6 +303,22 @@ export const SettingsDialog = ({
                     />
                   </div>
                 ))}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">
+                      Auto-start next timer
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Automatically begin the next phase when the current one ends
+                    </p>
+                  </div>
+                  <Checkbox
+                    checked={draft.autoStartNextTimer}
+                    onCheckedChange={(checked) =>
+                      setDraft((d) => ({ ...d, autoStartNextTimer: checked === true }))
+                    }
+                  />
+                </div>
                 <Button
                   onClick={handleSave}
                   className="w-full rounded-md text-xs"
@@ -338,7 +329,7 @@ export const SettingsDialog = ({
             )}
 
             {active === "account" && (
-              <AccountSection onClose={() => onOpenChange(false)} />
+              <AccountSection />
             )}
 
             {active === "notifications" && (

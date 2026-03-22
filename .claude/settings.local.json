@@ -4,7 +4,9 @@
       "Bash(xargs grep:*)",
       "Bash(find /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy -name .env* -o -name *.env)",
       "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy/frontend/src -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(grep -r \"localStorage\\\\|sessionStorage\" /c/Users/yorna/OneDrive/Desktop/python/burnoutbuddy/frontend/src --include=*.tsx --include=*.ts)"
     ]
   }
 }

@@ -1,8 +1,11 @@
 import { createBrowserRouter, redirect } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import RootLayout from '../layouts/RootLayout'
+import { useAuthState } from '@/context/AuthContext'
+import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 const Index = lazy(() => import('../pages/Index'))
+const GetStarted = lazy(() => import('../pages/GetStarted'))
 const Calendar = lazy(() => import('../pages/Calendar'))
 const Emergency = lazy(() => import('../pages/Emergency'))
 
@@ -14,6 +17,22 @@ function PageLoader() {
   )
 }
 
+function IndexOrGetStarted() {
+  const { isAuthenticated, isLoading } = useAuthState()
+
+  if (isLoading) return <PageLoader />
+
+  return isAuthenticated ? (
+    <Suspense fallback={<PageLoader />}>
+      <Index />
+    </Suspense>
+  ) : (
+    <Suspense fallback={<PageLoader />}>
+      <GetStarted />
+    </Suspense>
+  )
+}
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -21,18 +40,16 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: (
-          <Suspense fallback={<PageLoader />}>
-            <Index />
-          </Suspense>
-        ),
+        element: <IndexOrGetStarted />,
       },
       {
         path: 'calendar',
         element: (
-          <Suspense fallback={<PageLoader />}>
-            <Calendar />
-          </Suspense>
+          <ProtectedRoute>
+            <Suspense fallback={<PageLoader />}>
+              <Calendar />
+            </Suspense>
+          </ProtectedRoute>
         ),
       },
       {

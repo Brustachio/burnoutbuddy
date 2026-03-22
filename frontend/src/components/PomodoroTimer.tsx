@@ -37,6 +37,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [syncPopupOpen, setSyncPopupOpen] = useState(false);
   const hasSynced = useRef(false);
   const phaseStartRef = useRef<Date | null>(null);
+  const autoAdvanceRef = useRef(false);
 
   const alarmRef = useRef<HTMLAudioElement>(null);
   const timerContentRef = useRef<HTMLDivElement>(null);
@@ -79,7 +80,12 @@ export const PomodoroTimer = ({ settings }: Props) => {
 
   useEffect(() => {
     setSecondsLeft(totalSeconds);
-    setIsRunning(false);
+    if (autoAdvanceRef.current) {
+      autoAdvanceRef.current = false;
+      phaseStartRef.current = new Date();
+    } else {
+      setIsRunning(false);
+    }
   }, [phaseIndex]);
 
   useEffect(() => {
@@ -88,6 +94,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
       alarmRef.current?.play();
       const endTime = new Date();
       const startTime = phaseStartRef.current || new Date(endTime.getTime() - totalSeconds * 1000);
+      autoAdvanceRef.current = settings.autoStartNextTimer;
       if (phase === "work") {
         recordFocus(startTime, endTime);
         const next =
@@ -103,7 +110,6 @@ export const PomodoroTimer = ({ settings }: Props) => {
         recordShortBreak(startTime, endTime);
         setPhase("work");
       }
-      phaseStartRef.current = new Date();
       return;
     }
     const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);

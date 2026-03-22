@@ -14,6 +14,7 @@ export interface TimerSettings {
   breakMinutes: number;
   longBreakMinutes: number;
   sessionsBeforeLongBreak: number;
+  autoStartNextTimer: boolean;
 }
 
 const DEFAULT_SETTINGS: TimerSettings = {
@@ -21,11 +22,29 @@ const DEFAULT_SETTINGS: TimerSettings = {
   breakMinutes: 5,
   longBreakMinutes: 15,
   sessionsBeforeLongBreak: 4,
+  autoStartNextTimer: false,
 };
+
+const SETTINGS_STORAGE_KEY = "burnoutbuddy_timer_settings";
+
+function loadSettings(): TimerSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_SETTINGS;
+}
 
 const Index = () => {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<TimerSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<TimerSettings>(() => loadSettings());
+
+  const handleSaveSettings = (s: TimerSettings) => {
+    setSettings(s);
+    try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<"timer" | "account">("timer");
 
@@ -73,7 +92,7 @@ const Index = () => {
           onOpenChange={setSettingsOpen}
           initialSection={settingsSection}
           settings={settings}
-          onSave={setSettings}
+          onSave={handleSaveSettings}
         />
       </div>
     </SessionProvider>
