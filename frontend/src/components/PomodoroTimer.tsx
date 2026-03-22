@@ -31,7 +31,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const [isRunning, setIsRunning] = useState(false);
   const [completedSessions, setCompletedSessions] = useState(0);
 
-  const { setTimerRunning, setTasks, triggerEmergency, recordFocus, recordShortBreak, recordLongBreak } = useSession();
+  const { setTimerRunning, setTasks, triggerEmergency, recordFocus, recordShortBreak, recordLongBreak, forcedCheckin } = useSession();
   const navigate = useNavigate();
   const { syncState, startSync } = useSyncTasks();
   const [syncPopupOpen, setSyncPopupOpen] = useState(false);
@@ -44,6 +44,12 @@ export const PomodoroTimer = ({ settings }: Props) => {
   const { pipWindow, isSupported: isPiPSupported, togglePip } = usePip({ targetRef: timerContentRef });
 
   useEffect(() => { setTimerRunning(isRunning); }, [isRunning, setTimerRunning]);
+
+  useEffect(() => {
+    if (forcedCheckin && isRunning) {
+      setIsRunning(false);
+    }
+  }, [forcedCheckin]);
 
    useEffect(() => {
     alarmRef.current = new Audio("alarm.mp3");
@@ -142,6 +148,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
     phase === "work" ? "Focus" : phase === "break" ? "Short Break" : "Long Break";
 
   const handleStartClick = () => {
+    if (forcedCheckin) return;
     if (isRunning) {
       setIsRunning(false);
     } else if (!hasSynced.current) {
@@ -159,15 +166,19 @@ export const PomodoroTimer = ({ settings }: Props) => {
     if (syncState.tasks.length > 0) {
       setTasks(syncState.tasks);
     }
-    phaseStartRef.current = new Date();
-    setIsRunning(true);
+    if (!forcedCheckin) {
+      phaseStartRef.current = new Date();
+      setIsRunning(true);
+    }
   };
 
   const handleSyncSkip = () => {
     setSyncPopupOpen(false);
     hasSynced.current = true;
-    phaseStartRef.current = new Date();
-    setIsRunning(true);
+    if (!forcedCheckin) {
+      phaseStartRef.current = new Date();
+      setIsRunning(true);
+    }
   };
 
   useEffect(() => {
@@ -341,7 +352,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
             {formatTime(secondsLeft)}
           </span>
           <button
-            onClick={() => setIsRunning((r) => !r)}
+            onClick={() => { if (!forcedCheckin) setIsRunning((r) => !r); }}
             style={{
               display: "flex",
               alignItems: "center",

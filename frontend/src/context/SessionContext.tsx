@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from "react";
 import { sessionApi } from "@/services/api";
 
 export interface Task {
@@ -31,6 +31,8 @@ interface SessionContextValue {
   setTasksCompleted: (count: number) => void;
   resetSession: () => void;
   triggerEmergency: () => void;
+  forcedCheckin: boolean;
+  clearForcedCheckin: () => void;
 }
 
 const DEFAULT_STATS: SessionStats = {
@@ -68,6 +70,15 @@ export function SessionProvider({
   const [stats, setStats] = useState<SessionStats>(DEFAULT_STATS);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isTimerRunning, setTimerRunning] = useState(false);
+  const [forcedCheckin, setForcedCheckin] = useState(false);
+  const prevCyclesRef = useRef(0);
+
+  useEffect(() => {
+    if (stats.cyclesCompleted > prevCyclesRef.current) {
+      setForcedCheckin(true);
+    }
+    prevCyclesRef.current = stats.cyclesCompleted;
+  }, [stats.cyclesCompleted]);
 
   const recordFocus = useCallback((startTime: Date, endTime: Date) => {
     setStats((s) => {
@@ -99,13 +110,19 @@ export function SessionProvider({
     setStats((s) => ({ ...s, tasksCompleted: count }));
   }, []);
 
+  const clearForcedCheckin = useCallback(() => {
+    setForcedCheckin(false);
+  }, []);
+
   const resetSession = useCallback(() => {
     setStats(DEFAULT_STATS);
+    setForcedCheckin(false);
   }, []);
 
   const triggerEmergency = useCallback(() => {
     setTimerRunning(false);
     setStats(DEFAULT_STATS);
+    setForcedCheckin(false);
   }, []);
 
   return (
@@ -123,6 +140,8 @@ export function SessionProvider({
         setTasksCompleted,
         resetSession,
         triggerEmergency,
+        forcedCheckin,
+        clearForcedCheckin,
       }}
     >
       {children}

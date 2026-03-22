@@ -1,10 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ChevronUp, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { WELLNESS_MAP, RECOMMENDATION_PRIORITY } from "@/data/uva-wellness-map";
 import { checkinApi, riskApi, ApiError } from "@/services/api";
 import type { RiskScoreResponse } from "@/types/api";
+import { useSession } from "@/context/SessionContext";
 
 const CHECKIN_DATE_KEY = "burnoutbuddy_checkin_date";
 
@@ -88,6 +89,8 @@ const RISK_COLORS: Record<string, string> = {
 };
 
 export const DailyCheckIn = () => {
+  const { forcedCheckin, clearForcedCheckin } = useSession();
+
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(CHECKIN_DATE_KEY) === getTodayKey();
@@ -106,6 +109,21 @@ export const DailyCheckIn = () => {
   const [riskScore, setRiskScore] = useState<RiskScoreResponse | null>(null);
 
   const [touched, setTouched] = useState(false);
+
+  useEffect(() => {
+    if (forcedCheckin) {
+      setCollapsed(false);
+      setMood(5);
+      setStressLevel(5);
+      setSleepHours(7);
+      setWorkloadRating(5);
+      setFeelings([]);
+      setTouched(false);
+      setSubmitted(false);
+      setError(null);
+      setRiskScore(null);
+    }
+  }, [forcedCheckin]);
 
   const handleSlider = (setter: (v: number) => void) => (v: number) => {
     setter(v);
@@ -138,6 +156,9 @@ export const DailyCheckIn = () => {
       });
       setSubmitted(true);
       try { localStorage.setItem(CHECKIN_DATE_KEY, getTodayKey()); } catch { /* ignore */ }
+      if (forcedCheckin) {
+        clearForcedCheckin();
+      }
 
       // Fetch risk score after successful check-in
       try {
@@ -175,7 +196,11 @@ export const DailyCheckIn = () => {
   };
 
   return (
-    <div className="fixed right-6 top-1/2 -translate-y-1/2 z-40">
+    <>
+    {forcedCheckin && (
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" />
+    )}
+    <div className={`fixed right-6 top-1/2 -translate-y-1/2 ${forcedCheckin ? "z-[60]" : "z-40"}`}>
       {collapsed ? (
         <button
           key="icon"
@@ -190,18 +215,20 @@ export const DailyCheckIn = () => {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <span className="text-sm text-muted-foreground">
-          Daily Check-in
+          Check-in
         </span>
-        <button
-          onClick={() => {
-            try { localStorage.setItem(CHECKIN_DATE_KEY, getTodayKey()); } catch { /* ignore */ }
-            setCollapsed(true);
-          }}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Collapse"
-        >
-          <ChevronUp className="h-3.5 w-3.5" />
-        </button>
+        {!forcedCheckin && (
+          <button
+            onClick={() => {
+              try { localStorage.setItem(CHECKIN_DATE_KEY, getTodayKey()); } catch { /* ignore */ }
+              setCollapsed(true);
+            }}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Collapse"
+          >
+            <ChevronUp className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="px-4 pb-4 flex flex-col gap-4">
@@ -293,5 +320,6 @@ export const DailyCheckIn = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
