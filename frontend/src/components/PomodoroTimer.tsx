@@ -141,7 +141,7 @@ export const PomodoroTimer = ({ settings }: Props) => {
             <div
               key={i}
               className={`h-2 w-2 rounded-full transition-colors ${
-                i < completedSessions ? "bg-foreground" : "bg-border"
+                i < completedSessions % settings.sessionsBeforeLongBreak ? "bg-foreground" : "bg-border"
               }`}
             />
           ))}
